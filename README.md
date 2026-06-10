@@ -44,7 +44,3 @@ python3 -m http.server 8000
 
 [Three.js](https://threejs.org/) (WebGL) — `RoundedBoxGeometry`, `OrbitControls`,
 `RoomEnvironment`, and `UnrealBloomPass`, all loaded from a CDN via an import map.
-
----
-
-Made with ♥ and <img src="https://github.githubassets.com/images/icons/emoji/copilot.png" alt="GitHub Copilot" width="14" height="14" align="center"> [GitHub Copilot](https://github.com/features/copilot) and open source on <img src="https://github.githubassets.com/favicons/favicon-dark.png" alt="GitHub" width="14" height="14" align="center"> [GitHub](https://github.com/leereilly/rubiks-rubriks) by [@leereilly](https://github.com/leereilly).
