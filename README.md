@@ -7,7 +7,7 @@ then solves itself with smooth, eased layer-turn animations... and you control t
 
 ![](screenshot.webp)
 
-![Rubik's Rubrics](https://img.shields.io/badge/three.js-r160-000?logo=three.js) ![No build step](https://img.shields.io/badge/build-none-2ea043)
+![Rubik's Rubrics](https://img.shields.io/badge/three.js-r160-000?logo=three.js) ![No build step](https://img.shields.io/badge/build-none-2ea043) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
@@ -48,3 +48,7 @@ python3 -m http.server 8000
 ---
 
 Made with ♥ and [GitHub Copilot](https://github.com/features/copilot) and Claude Opus 4.8 · max :metal:
+
+## License
+
+[MIT](LICENSE)
