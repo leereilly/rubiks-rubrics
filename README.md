@@ -12,6 +12,9 @@ then solves itself with smooth, eased layer-turn animations... and you control t
 ## Features
 
 - **Random scramble** — the cube shows up in a random state every time.
+- **Scan a real cube** — enable your webcam, hold up a physical cube face by face,
+  and the browser reads the colors, shows the detected layout as an editable net
+  (tap to correct any misreads), then solves it so you can watch it unscramble.
 - **Animated solve** — watch it unscramble with buttery, eased quarter-turn animations.
 - **Speed slider** — go from a slow crawl to turbo.
 - **Timeline scrubber + transport** — scrub anywhere between *Scrambled* and *Solved*,
@@ -29,6 +32,12 @@ solution is simply that sequence **reversed and inverted**, so every solve is va
 construction — no solver library required. State is tracked as a small logical model
 (each cubie's grid position + orientation quaternion), which keeps scrubbing
 frame-perfect and drift-free.
+
+A cube you **scan** with your webcam can be in any state, so that path uses a real
+solver: [cubejs](https://github.com/ldez/cubejs) (Herbert Kociemba's two-phase
+algorithm) runs in a Web Worker, loaded straight from a CDN. Each face's nine stickers
+are classified by how close they are to the six center colors, the solution it returns
+is fed through the same reverse-and-invert machinery, and the visualizer plays it back.
 
 ## Running locally
 

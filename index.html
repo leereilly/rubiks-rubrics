@@ -445,6 +445,127 @@
   [data-theme="light"] .modal-card code { background: rgba(0,0,0,.07); }
   [data-theme="light"] #footer a:hover { color: #1f2328; }
   [data-theme="light"] .label .help .tip { color: #e6edf3; }
+
+  /* ---- Webcam cube scanner ---- */
+  .scan-cta { border-color: var(--accent); }
+  .scan-cta svg { fill: var(--accent-bright); }
+  #scanCube { margin-bottom: 10px; }
+
+  /* "Press play" toast */
+  .toast {
+    position: fixed; top: 74px; left: 50%; z-index: 65;
+    transform: translateX(-50%) translateY(-8px);
+    max-width: min(440px, calc(100vw - 32px));
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px;
+    padding: 11px 16px; font-size: 13px; color: var(--text); text-align: center;
+    backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast b { color: var(--accent-bright); }
+
+  #playPause.pulse { animation: pp-pulse 1.1s ease-in-out infinite; }
+  @keyframes pp-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+    50% { box-shadow: 0 0 0 9px rgba(63,185,80,.3); }
+  }
+
+  /* Full-screen scanner overlay */
+  .scan-overlay {
+    position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column;
+    background: rgba(3,5,10,.93); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .scan-overlay[hidden] { display: none; }
+  [data-theme="light"] .scan-overlay { background: rgba(233,238,243,.95); }
+
+  .scan-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; gap: 12px; flex: 0 0 auto;
+  }
+  .scan-bar h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .scan-close {
+    width: 34px; height: 34px; border-radius: 10px; cursor: pointer; flex: 0 0 auto;
+    background: rgba(255,255,255,.08); border: 1px solid var(--panel-border); color: var(--text);
+    font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .scan-close:hover { background: rgba(255,255,255,.16); }
+  [data-theme="light"] .scan-close { background: rgba(0,0,0,.05); }
+
+  .scan-body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; overflow: auto; }
+
+  .scan-stage {
+    position: relative; width: min(100%, 680px); aspect-ratio: 4 / 3; max-height: 100%;
+    border-radius: 18px; overflow: hidden; background: #000;
+    border: 1px solid var(--panel-border); box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .scan-overlay[data-mode="review"] .scan-stage { display: none; }
+  #scanVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; background: #000; }
+  .scan-grid {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    pointer-events: none;
+  }
+  .scan-grid .gc { border: 2px solid rgba(255,255,255,.6); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
+  .scan-cam-error {
+    position: absolute; inset: 0; display: none; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center; text-align: center; padding: 26px;
+    color: var(--text); font-size: 14px; line-height: 1.5; background: rgba(3,5,10,.72);
+  }
+  .scan-overlay[data-cam="error"] .scan-cam-error { display: flex; }
+
+  /* Editable net (review mode) */
+  .scan-review { display: none; flex-direction: column; gap: 16px; align-items: center; width: 100%; padding: 8px 0 4px; }
+  .scan-overlay[data-mode="review"] .scan-review { display: flex; }
+  .scan-review-help { margin: 0; font-size: 12.5px; color: var(--text-dim); text-align: center; max-width: 420px; }
+  .scan-net { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; width: min(94vw, 432px); }
+  .net-cell {
+    aspect-ratio: 1; border: none; border-radius: 4px; padding: 0; cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); transition: transform .08s;
+  }
+  .net-cell:not(.center):hover { transform: scale(1.1); }
+  .net-cell.center { cursor: default; box-shadow: inset 0 0 0 2px rgba(0,0,0,.55); }
+  .scan-palette { display: flex; gap: 10px; }
+  .pal {
+    width: 30px; height: 30px; border-radius: 8px; border: 2px solid transparent; cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); transition: transform .08s;
+  }
+  .pal:hover { transform: scale(1.08); }
+  .pal.sel { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+
+  .scan-foot { flex: 0 0 auto; padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 11px; align-items: center; }
+  .scan-steps { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+  .scan-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--panel-border); color: var(--text-dim);
+  }
+  [data-theme="light"] .scan-chip { background: rgba(0,0,0,.04); }
+  .scan-chip.active { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(46,160,67,.28); }
+  .scan-chip.done { color: var(--text); }
+  .scan-chip .sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); background: transparent; }
+  .scan-instruction { margin: 0; max-width: 540px; text-align: center; font-size: 13.5px; line-height: 1.5; color: var(--text); min-height: 38px; }
+  .scan-instruction b { color: var(--accent-bright); }
+  .scan-msg { min-height: 16px; margin: 0; font-size: 12.5px; line-height: 1.4; text-align: center; }
+  .scan-msg.ok { color: var(--accent-bright); }
+  .scan-msg.err { color: #ff7b72; }
+  .scan-actions { display: flex; gap: 10px; }
+  .scan-overlay[data-mode="camera"] #scanReviewActions { display: none; }
+  .scan-overlay[data-mode="review"] #scanCamActions { display: none; }
+  .scan-btn {
+    height: 44px; padding: 0 22px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--panel-border); background: rgba(255,255,255,.06); color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px; transition: background .15s, transform .08s, opacity .15s;
+  }
+  .scan-btn:hover { background: rgba(255,255,255,.14); }
+  .scan-btn:active { transform: scale(.97); }
+  [data-theme="light"] .scan-btn { background: rgba(0,0,0,.05); }
+  [data-theme="light"] .scan-btn:hover { background: rgba(0,0,0,.09); }
+  .scan-btn.primary { background: var(--accent); border-color: var(--accent-bright); color: #fff; }
+  .scan-btn.primary:hover { background: var(--accent-bright); }
+  .scan-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .scan-btn svg { width: 16px; height: 16px; fill: currentColor; }
 </style>
 </head>
 <body>
@@ -608,11 +729,54 @@
       <div class="cs-msg" id="customMsg" aria-live="polite"></div>
     </div>
 
+    <button class="scramble-btn scan-cta" id="scanCube">
+      <svg viewBox="0 0 24 24"><path d="M9.4 4 8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.4-2H9.4zM12 8.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
+      Scan a real cube
+    </button>
+
     <button class="scramble-btn" id="scramble">
       <svg viewBox="0 0 24 24"><path d="M12 6V2L7 7l5 5V8c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg>
       New scramble
     </button>
   </div>
+
+  <!-- Webcam cube scanner -->
+  <div id="scanModal" class="scan-overlay" hidden data-mode="camera" data-cam="init" role="dialog" aria-modal="true" aria-label="Scan a cube with your webcam">
+    <div class="scan-bar">
+      <h2 id="scanHeading">Scan your cube</h2>
+      <button class="scan-close" id="scanClose" aria-label="Close scanner">&times;</button>
+    </div>
+    <div class="scan-body">
+      <div class="scan-stage" id="scanStage">
+        <video id="scanVideo" playsinline autoplay muted></video>
+        <div class="scan-grid" id="scanGrid" aria-hidden="true"></div>
+        <div class="scan-cam-error" id="scanCamError">
+          <span id="scanCamErrorMsg">We couldn't access your camera.</span>
+          <button class="scan-btn" id="scanCamRetry">Try again</button>
+        </div>
+      </div>
+      <div class="scan-review" id="scanReview">
+        <p class="scan-review-help">Tap a color below, then tap any sticker to correct it. Centers are fixed.</p>
+        <div class="scan-net" id="scanNet"></div>
+        <div class="scan-palette" id="scanPalette"></div>
+      </div>
+    </div>
+    <div class="scan-foot">
+      <div class="scan-steps" id="scanSteps"></div>
+      <p class="scan-instruction" id="scanInstruction"></p>
+      <p class="scan-msg" id="scanMsg" aria-live="polite"></p>
+      <div class="scan-actions" id="scanCamActions">
+        <button class="scan-btn" id="scanBack">Back</button>
+        <button class="scan-btn primary" id="scanCapture" disabled>Capture face</button>
+      </div>
+      <div class="scan-actions" id="scanReviewActions">
+        <button class="scan-btn" id="scanRestart">Rescan</button>
+        <button class="scan-btn primary" id="scanSolve">Solve it</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="importmap">
   {
@@ -904,6 +1068,7 @@
 
   function setScramble(moves, label) {
     stopPlaying();
+    abortAnimation();
     resetToSolved();
     scramble = moves;
     scrambleLabel = label != null ? label : moves.map(moveToNotation).join(' ');
@@ -927,7 +1092,26 @@
   let playing = false;
   let pendingScrub = null;
   let turnDuration = 420;            // ms per quarter turn
+  let animRAF = null;                // handle for the in-flight turn, so it can be aborted
+  let animPivot = null;
+  let animAffected = null;
   const easeInOut = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+  // Abort a turn that's mid-flight without committing it: reattach its cubies to the
+  // cube root (so renderFromModel can position them) and drop the pivot. Used when the
+  // timeline is rebuilt out from under a running animation (e.g. a fresh setScramble).
+  function abortAnimation() {
+    if (animRAF !== null) { cancelAnimationFrame(animRAF); animRAF = null; }
+    if (animPivot) {
+      animAffected.forEach(c => cubeRoot.attach(c.obj));
+      cubeRoot.remove(animPivot);
+      animPivot = null;
+      animAffected = null;
+    }
+    animating = false;
+    activeSolve = -1;
+    pendingScrub = null;
+  }
 
   function animateMove(move, dispBase, dispDir, onDone) {
     animating = true;
@@ -935,6 +1119,8 @@
     cubeRoot.add(pivot);
     const affected = affectedCubies(move);
     affected.forEach(c => pivot.attach(c.obj));
+    animPivot = pivot;
+    animAffected = affected;
     const total = move.dir * HALF;
     const axisVec = AXES[move.axis];
     const start = performance.now();
@@ -945,17 +1131,20 @@
       pivot.quaternion.setFromAxisAngle(axisVec, total * e);
       timeline.value = dispBase + dispDir * e;
       if (t < 1) {
-        requestAnimationFrame(frame);
+        animRAF = requestAnimationFrame(frame);
       } else {
         affected.forEach(c => cubeRoot.attach(c.obj));
         cubeRoot.remove(pivot);
+        animRAF = null;
+        animPivot = null;
+        animAffected = null;
         applyMoveInstant(move);
         renderFromModel();
         animating = false;
         onDone && onDone();
       }
     }
-    requestAnimationFrame(frame);
+    animRAF = requestAnimationFrame(frame);
   }
 
   function stepForward() {
@@ -1033,7 +1222,7 @@
   // Reveals the solution one move at a time as it animates: tokens up to the
   // current index are kept, plus the move currently being "typed" with a caret.
   function updateNotation() {
-    const shown = Math.max(currentIndex, activeSolve + 1);
+    const shown = Math.min(solveMoves.length, Math.max(currentIndex, activeSolve + 1));
     const parts = [];
     for (let i = 0; i < shown; i++) {
       const cls = i === activeSolve ? 'nt-move active' : 'nt-move nt-done';
@@ -1317,6 +1506,460 @@
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
+
+  // ---------------------------------------------------------------------------
+  // Webcam cube scanner — capture 6 faces, detect colors, solve with cubejs
+  // ---------------------------------------------------------------------------
+  // A physical cube can be in any state, so (unlike the rest of the app) this
+  // needs a real solver. We load cube.js + solve.js — Herbert Kociemba's two-phase
+  // algorithm, via ldez/cubejs (MIT) — into a Blob web worker so its one-time
+  // precalc never blocks the 3D scene. The worker takes a 54-char facelet string in
+  // cubejs URFDLB order and returns a solution in standard notation; the existing
+  // parseScramble + inverse machinery turns that straight into a replayable solve.
+  const CUBEJS_URLS = [
+    'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/cube.js',
+    'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/solve.js',
+  ];
+
+  let solverWorker = null;
+  let solverState = 'none';           // none | loading | ready | error
+  let solveSeq = 0;
+  const solveJobs = new Map();
+  const solverReadyWaiters = [];
+
+  async function ensureSolver() {
+    if (solverState === 'ready' || solverState === 'loading') return;
+    solverState = 'loading';
+    try {
+      const [cubeSrc, solveSrc] = await Promise.all(
+        CUBEJS_URLS.map(u => fetch(u).then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        }))
+      );
+      // Inline the library into the worker so we never rely on cross-origin
+      // importScripts. cube.js attaches to self.Cube; solve.js extends it.
+      const glue = cubeSrc + '\n' + solveSrc + '\n' + `
+        var Cube = self.Cube;
+        Cube.initSolver();
+        self.postMessage({ type: 'ready' });
+        self.onmessage = function (e) {
+          var d = e.data;
+          if (!d || d.type !== 'solve') return;
+          try {
+            var solution = Cube.fromString(d.facelets).solve();
+            self.postMessage({ type: 'solved', id: d.id, solution: solution });
+          } catch (err) {
+            self.postMessage({ type: 'solveError', id: d.id, error: String((err && err.message) || err) });
+          }
+        };
+      `;
+      const url = URL.createObjectURL(new Blob([glue], { type: 'text/javascript' }));
+      solverWorker = new Worker(url);
+      solverWorker.onmessage = (e) => {
+        const d = e.data;
+        if (d.type === 'ready') {
+          solverState = 'ready';
+          solverReadyWaiters.splice(0).forEach(fn => fn());
+        } else if (d.type === 'solved') {
+          const job = solveJobs.get(d.id);
+          if (job) { solveJobs.delete(d.id); job.resolve(d.solution); }
+        } else if (d.type === 'solveError') {
+          const job = solveJobs.get(d.id);
+          if (job) { solveJobs.delete(d.id); job.reject(new Error(d.error)); }
+        }
+      };
+      solverWorker.onerror = () => {
+        solverState = 'error';
+        solverReadyWaiters.splice(0);
+        solveJobs.forEach(job => job.reject(new Error('Solver failed to load')));
+        solveJobs.clear();
+      };
+    } catch (err) {
+      solverState = 'error';
+      solverReadyWaiters.splice(0);
+      solveJobs.forEach(job => job.reject(new Error('Solver unavailable')));
+      solveJobs.clear();
+    }
+  }
+
+  function solveFacelets(facelets) {
+    return new Promise((resolve, reject) => {
+      if (solverState === 'error') { reject(new Error('Solver unavailable')); return; }
+      const id = ++solveSeq;
+      solveJobs.set(id, { resolve, reject });
+      const send = () => {
+        if (solverWorker) solverWorker.postMessage({ type: 'solve', id, facelets });
+        else { solveJobs.delete(id); reject(new Error('Solver unavailable')); }
+      };
+      if (solverState === 'ready') send();
+      else solverReadyWaiters.push(send);
+    });
+  }
+
+  // ---- Scanner constants ----
+  const SCAN_ORDER = ['U', 'R', 'F', 'D', 'L', 'B'];     // cubejs facelet-string order
+  const SOLVED_FACELETS = SCAN_ORDER.map(f => f.repeat(9)).join('');
+  const CAPTURE_ORDER = ['F', 'R', 'B', 'L', 'U', 'D'];  // the order we ask the user to show
+  const NET_POS = { U: [0, 1], L: [1, 0], F: [1, 1], R: [1, 2], B: [1, 3], D: [2, 1] };
+  const FACE_NAME = { U: 'Up', R: 'Right', F: 'Front', D: 'Down', L: 'Left', B: 'Back' };
+  const FACE_INSTR = {
+    F: 'Pick any side as the front and hold it flat to the camera. Keep this same side on top for the next three steps.',
+    R: 'Spin the cube a quarter-turn so its right-hand side faces the camera, keeping the same side on top.',
+    B: 'Spin another quarter-turn the same way to show the back, keeping the same side on top.',
+    L: 'Spin another quarter-turn the same way to show the left side, keeping the same side on top.',
+    U: 'Face the cube forward again, then tip it forward so the top faces the camera (front edge ends at the bottom).',
+    D: 'From front-facing, tip the cube backward so the bottom faces the camera (front edge ends at the top).',
+  };
+  // Representative display colors per face letter (orange kept distinct from red).
+  const FACE_COLOR = { U: '#f7f7f7', R: '#d6261f', F: '#00a44a', D: '#ffd400', L: '#ff7a18', B: '#1d63ff' };
+
+  const scanData = {};       // faceKey -> [9] {r,g,b}
+  let netLetters = {};       // faceKey -> [9] letters (editable after classify)
+  let scanStep = 0;
+  let paintColor = 'U';
+  let scanStream = null;
+
+  // ---- DOM refs ----
+  const scanModal = document.getElementById('scanModal');
+  const scanVideo = document.getElementById('scanVideo');
+  const scanStage = document.getElementById('scanStage');
+  const scanGrid = document.getElementById('scanGrid');
+  const scanSteps = document.getElementById('scanSteps');
+  const scanInstruction = document.getElementById('scanInstruction');
+  const scanMsg = document.getElementById('scanMsg');
+  const scanNet = document.getElementById('scanNet');
+  const scanPalette = document.getElementById('scanPalette');
+  const scanHeading = document.getElementById('scanHeading');
+  const scanCapture = document.getElementById('scanCapture');
+  const scanBackBtn = document.getElementById('scanBack');
+  const scanSolveBtn = document.getElementById('scanSolve');
+  const scanCamErrorMsg = document.getElementById('scanCamErrorMsg');
+  const toastEl = document.getElementById('toast');
+
+  for (let i = 0; i < 9; i++) {
+    const d = document.createElement('div');
+    d.className = 'gc';
+    scanGrid.appendChild(d);
+  }
+
+  // ---- Color sampling & classification ----
+  // sRGB -> CIE Lab, for perceptually sane color distance (separates red/orange).
+  function rgb2lab(r, g, b) {
+    let R = r / 255, G = g / 255, B = b / 255;
+    R = R > 0.04045 ? Math.pow((R + 0.055) / 1.055, 2.4) : R / 12.92;
+    G = G > 0.04045 ? Math.pow((G + 0.055) / 1.055, 2.4) : G / 12.92;
+    B = B > 0.04045 ? Math.pow((B + 0.055) / 1.055, 2.4) : B / 12.92;
+    let x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
+    let y = (R * 0.2126 + G * 0.7152 + B * 0.0722);
+    let z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
+    const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+    x = f(x); y = f(y); z = f(z);
+    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  }
+  function labDist(a, b) {
+    const la = rgb2lab(a.r, a.g, a.b), lb = rgb2lab(b.r, b.g, b.b);
+    return (la[0] - lb[0]) ** 2 + (la[1] - lb[1]) ** 2 + (la[2] - lb[2]) ** 2;
+  }
+
+  const capCanvas = document.createElement('canvas');
+  const capCtx = capCanvas.getContext('2d', { willReadFrequently: true });
+
+  function sampleCurrentFace() {
+    const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+    if (!vw || !vh) return null;
+    capCanvas.width = vw; capCanvas.height = vh;
+    // Mirror horizontally so image-left maps to the cube's own left edge, which is
+    // what the facelet ordering expects (an un-mirrored webcam flips the columns).
+    capCtx.save();
+    capCtx.translate(vw, 0); capCtx.scale(-1, 1);
+    capCtx.drawImage(scanVideo, 0, 0, vw, vh);
+    capCtx.restore();
+    // Map the on-screen centered guide square through the object-fit: cover transform.
+    const sw = scanStage.clientWidth, sh = scanStage.clientHeight;
+    const scale = Math.max(sw / vw, sh / vh);
+    const side = (0.7 * Math.min(sw, sh)) / scale;
+    const x0 = vw / 2 - side / 2, y0 = vh / 2 - side / 2;
+    const cell = side / 3, patch = Math.max(6, Math.floor(cell * 0.4));
+    const out = [];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cx = x0 + (c + 0.5) * cell, cy = y0 + (r + 0.5) * cell;
+        const px = Math.max(0, Math.min(vw - patch, Math.floor(cx - patch / 2)));
+        const py = Math.max(0, Math.min(vh - patch, Math.floor(cy - patch / 2)));
+        const data = capCtx.getImageData(px, py, patch, patch).data;
+        let R = 0, G = 0, B = 0, n = 0;
+        for (let i = 0; i < data.length; i += 4) { R += data[i]; G += data[i + 1]; B += data[i + 2]; n++; }
+        out.push({ r: R / n, g: G / n, b: B / n });
+      }
+    }
+    return out;
+  }
+
+  // Classify every facelet as the face whose center color it most resembles. This
+  // is robust to lighting and to non-standard color schemes.
+  function classifyAll() {
+    const centers = SCAN_ORDER.map(f => scanData[f][4]);
+    netLetters = {};
+    for (const f of SCAN_ORDER) {
+      netLetters[f] = scanData[f].map(px => {
+        let best = 0, bd = Infinity;
+        centers.forEach((c, i) => { const d = labDist(px, c); if (d < bd) { bd = d; best = i; } });
+        return SCAN_ORDER[best];
+      });
+    }
+  }
+
+  // ---- UI helpers ----
+  function setScanMsg(text, kind) {
+    scanMsg.textContent = text || '';
+    scanMsg.className = 'scan-msg' + (kind ? ' ' + kind : '');
+  }
+
+  function layoutGuide() {
+    const s = 0.7 * Math.min(scanStage.clientWidth, scanStage.clientHeight);
+    scanGrid.style.width = s + 'px';
+    scanGrid.style.height = s + 'px';
+  }
+
+  function renderSteps() {
+    scanSteps.innerHTML = '';
+    CAPTURE_ORDER.forEach((f, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'scan-chip' + (i === scanStep ? ' active' : '') + (scanData[f] ? ' done' : '');
+      const sw = document.createElement('span');
+      sw.className = 'sw';
+      if (scanData[f]) {
+        const c = scanData[f][4];
+        sw.style.background = `rgb(${c.r | 0}, ${c.g | 0}, ${c.b | 0})`;
+      }
+      chip.appendChild(sw);
+      chip.appendChild(document.createTextNode(FACE_NAME[f]));
+      scanSteps.appendChild(chip);
+    });
+  }
+
+  function updateCameraStep() {
+    const f = CAPTURE_ORDER[scanStep];
+    scanInstruction.innerHTML = `<b>Face ${scanStep + 1} of 6 — ${FACE_NAME[f]}.</b> ${FACE_INSTR[f]}`;
+    scanBackBtn.disabled = scanStep === 0;
+    scanCapture.textContent = scanStep === 5 ? 'Capture & review' : 'Capture face';
+    renderSteps();
+  }
+
+  function renderNet() {
+    scanNet.innerHTML = '';
+    for (const f of ['U', 'L', 'F', 'R', 'B', 'D']) {
+      const [fr, fc] = NET_POS[f];
+      for (let i = 0; i < 9; i++) {
+        const r = (i / 3) | 0, c = i % 3;
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        const isCenter = i === 4;
+        cell.className = 'net-cell' + (isCenter ? ' center' : '');
+        cell.style.gridColumn = fc * 3 + c + 1;
+        cell.style.gridRow = fr * 3 + r + 1;
+        const letter = netLetters[f][i];
+        cell.style.background = FACE_COLOR[letter];
+        cell.title = FACE_NAME[letter] + (isCenter ? ' (center)' : '');
+        if (isCenter) {
+          cell.disabled = true;
+        } else {
+          cell.addEventListener('click', () => {
+            netLetters[f][i] = paintColor;
+            cell.style.background = FACE_COLOR[paintColor];
+            cell.title = FACE_NAME[paintColor];
+            validateNet();
+          });
+        }
+        scanNet.appendChild(cell);
+      }
+    }
+  }
+
+  function renderPalette() {
+    scanPalette.innerHTML = '';
+    for (const f of SCAN_ORDER) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pal' + (f === paintColor ? ' sel' : '');
+      b.style.background = FACE_COLOR[f];
+      b.title = FACE_NAME[f];
+      b.setAttribute('aria-label', FACE_NAME[f]);
+      b.addEventListener('click', () => { paintColor = f; renderPalette(); });
+      scanPalette.appendChild(b);
+    }
+  }
+
+  function buildFaceletString() {
+    return SCAN_ORDER.map(f => netLetters[f].join('')).join('');
+  }
+
+  function validateNet() {
+    const str = buildFaceletString();
+    const counts = {};
+    for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
+    const bad = SCAN_ORDER.filter(f => counts[f] !== 9);
+    if (bad.length) {
+      setScanMsg(`Each color needs exactly 9 stickers (off: ${bad.map(f => `${FACE_NAME[f]} ${counts[f] || 0}`).join(', ')}).`, 'err');
+      scanSolveBtn.disabled = true;
+      return false;
+    }
+    setScanMsg('Looks complete — tap "Solve it".', 'ok');
+    scanSolveBtn.disabled = false;
+    return true;
+  }
+
+  // ---- State transitions ----
+  function enterReview() {
+    scanModal.dataset.mode = 'review';
+    scanHeading.textContent = 'Check the scan';
+    paintColor = 'U';
+    scanSolveBtn.textContent = 'Solve it';
+    renderNet();
+    renderPalette();
+    validateNet();
+  }
+
+  function backToCamera() {
+    scanModal.dataset.mode = 'camera';
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    for (const f of CAPTURE_ORDER) delete scanData[f];
+    setScanMsg('', null);
+    updateCameraStep();
+  }
+
+  function onCapture() {
+    const f = CAPTURE_ORDER[scanStep];
+    const cells = sampleCurrentFace();
+    if (!cells) { setScanMsg('Camera is still warming up — give it a second.', 'err'); return; }
+    scanData[f] = cells;
+    setScanMsg('', null);
+    if (scanStep < 5) { scanStep++; updateCameraStep(); }
+    else { classifyAll(); enterReview(); }
+  }
+
+  function onBack() {
+    if (scanStep > 0) { scanStep--; updateCameraStep(); }
+  }
+
+  async function onSolve() {
+    if (!validateNet()) return;
+    const str = buildFaceletString();
+    // cubejs always returns a (non-empty) move sequence, even for a solved cube, so
+    // catch the already-solved case from the scanned layout itself.
+    if (str === SOLVED_FACELETS) {
+      closeScanner();
+      setScramble([], '');
+      showToast('That cube is already solved! \uD83C\uDF89');
+      return;
+    }
+    const original = scanSolveBtn.textContent;
+    scanSolveBtn.disabled = true;
+    scanSolveBtn.textContent = 'Solving…';
+    setScanMsg('Solving with Kociemba\u2019s two-phase algorithm…', null);
+    ensureSolver();
+    try {
+      const solution = await solveFacelets(str);
+      applyScannedSolution(solution);
+    } catch (err) {
+      scanSolveBtn.disabled = false;
+      scanSolveBtn.textContent = original;
+      setScanMsg('That layout isn\u2019t a solvable cube. Check the colors (watch for red vs orange) and try again.', 'err');
+    }
+  }
+
+  function applyScannedSolution(solution) {
+    closeScanner();
+    // The solution takes scanned -> solved; its inverse takes solved -> scanned.
+    // Feeding that inverse to setScramble reconstructs the scanned state on screen and
+    // recomputes solveMoves back to exactly this solution, ready for Play.
+    const parsed = parseScramble(solution.trim());
+    const scrambleMoves = parsed.moves.slice().reverse().map(inverse);
+    setScramble(scrambleMoves);
+    showToast('Cube scanned! Press <b>\u25B6 Play</b> to watch it solve.');
+    nudgePlay();
+  }
+
+  // ---- Toast + play nudge ----
+  let toastTimer = null;
+  function showToast(html) {
+    toastEl.innerHTML = html;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 6500);
+  }
+  function nudgePlay() {
+    if (mqMobile.matches) applySheetState('expanded');
+    const pp = document.getElementById('playPause');
+    pp.classList.add('pulse');
+    setTimeout(() => pp.classList.remove('pulse'), 5500);
+  }
+
+  // ---- Camera lifecycle ----
+  async function startCamera() {
+    scanModal.dataset.cam = 'init';
+    setScanMsg('', null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      scanModal.dataset.cam = 'error';
+      scanCamErrorMsg.textContent = 'This browser doesn\u2019t support camera access.';
+      return;
+    }
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      scanVideo.srcObject = scanStream;
+      await scanVideo.play();
+      scanModal.dataset.cam = 'live';
+      scanCapture.disabled = false;
+      layoutGuide();
+    } catch (err) {
+      scanModal.dataset.cam = 'error';
+      scanCamErrorMsg.textContent = (err && err.name === 'NotAllowedError')
+        ? 'Camera permission was blocked. Allow camera access in your browser, then try again.'
+        : 'We couldn\u2019t start your camera. Close any app that\u2019s using it, then try again.';
+    }
+  }
+
+  function stopCamera() {
+    if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+    scanVideo.srcObject = null;
+  }
+
+  function scanKeydown(e) { if (e.key === 'Escape') closeScanner(); }
+
+  function openScanner() {
+    scanModal.hidden = false;
+    scanModal.dataset.mode = 'camera';
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    netLetters = {};
+    for (const f of CAPTURE_ORDER) delete scanData[f];
+    scanCapture.disabled = true;
+    updateCameraStep();
+    layoutGuide();
+    ensureSolver();   // warm up the solver while the user scans
+    startCamera();
+    document.addEventListener('keydown', scanKeydown);
+  }
+
+  function closeScanner() {
+    stopCamera();
+    scanModal.hidden = true;
+    document.removeEventListener('keydown', scanKeydown);
+  }
+
+  document.getElementById('scanCube').addEventListener('click', openScanner);
+  document.getElementById('scanClose').addEventListener('click', closeScanner);
+  scanCapture.addEventListener('click', onCapture);
+  scanBackBtn.addEventListener('click', onBack);
+  document.getElementById('scanRestart').addEventListener('click', backToCamera);
+  scanSolveBtn.addEventListener('click', onSolve);
+  document.getElementById('scanCamRetry').addEventListener('click', startCamera);
+  window.addEventListener('resize', () => { if (!scanModal.hidden) layoutGuide(); });
 
   // ---------------------------------------------------------------------------
   // Resize + render loop
