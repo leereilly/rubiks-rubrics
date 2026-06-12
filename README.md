@@ -35,9 +35,12 @@ frame-perfect and drift-free.
 
 A cube you **scan** with your webcam can be in any state, so that path uses a real
 solver: [cubejs](https://github.com/ldez/cubejs) (Herbert Kociemba's two-phase
-algorithm) runs in a Web Worker, loaded straight from a CDN. Each face's nine stickers
-are classified by how close they are to the six center colors, the solution it returns
-is fed through the same reverse-and-invert machinery, and the visualizer plays it back.
+algorithm) runs in a Web Worker, loaded straight from a CDN. All 54 stickers are matched
+against the six scanned center colors in a hue/saturation space (brightness is ignored, so
+glare and uneven lighting don't wash them out) and then balanced so each color appears
+exactly nine times — which fixes systematic misreads like red-vs-orange and guarantees a
+legal cube. The solution it returns is fed through the same reverse-and-invert machinery,
+and the visualizer plays it back.
 
 ## Running locally
 

@@ -507,13 +507,123 @@
     display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
     pointer-events: none;
   }
-  .scan-grid .gc { border: 2px solid rgba(255,255,255,.6); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
+  .scan-grid .gc {
+    border: 2px solid rgba(255,255,255,.6); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4);
+    transition: background-color .12s linear;
+  }
+  .scan-overlay[data-mode="camera"] .scan-grid { pointer-events: auto; }
+  .scan-overlay[data-mode="camera"] .scan-grid .gc:not(.center) { cursor: pointer; }
+  .scan-grid .gc.pinned { box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 5px rgba(0,0,0,.6); }
   .scan-cam-error {
     position: absolute; inset: 0; display: none; flex-direction: column; gap: 14px;
     align-items: center; justify-content: center; text-align: center; padding: 26px;
     color: var(--text); font-size: 14px; line-height: 1.5; background: rgba(3,5,10,.72);
   }
   .scan-overlay[data-cam="error"] .scan-cam-error { display: flex; }
+
+  /* Color calibration: one large centered box, outlined in the target color and filled
+     live with the color we currently detect, so the user can match them before capturing. */
+  .scan-calib {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    border: 4px solid #fff; border-radius: 14px; display: none; pointer-events: none;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 6px 24px rgba(0,0,0,.4);
+    transition: background-color .12s linear, border-color .18s;
+  }
+  .scan-overlay[data-mode="calibrate"][data-cam="live"] .scan-calib { display: block; }
+  .scan-overlay[data-mode="calibrate"] .scan-grid,
+  .scan-overlay[data-mode="calibrate"] .scan-guide { display: none; }
+
+  /* Rotation guide: a little 3D cube that demonstrates how to turn the real cube
+     for the current capture step. Anchored in the stage corner, clear of the
+     centered alignment grid, and hidden once we leave the live camera. */
+  .scan-guide {
+    position: absolute; top: 12px; left: 12px; z-index: 3;
+    width: clamp(92px, 24%, 128px);
+    padding: 9px 9px 7px;
+    border-radius: 14px; transform-origin: top left;
+    background: rgba(3,5,10,.5); border: 1px solid rgba(255,255,255,.16);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: none; user-select: none;
+  }
+  [data-theme="light"] .scan-guide { background: rgba(255,255,255,.62); border-color: rgba(0,0,0,.14); }
+  .scan-overlay[data-cam="error"] .scan-guide,
+  .scan-overlay[data-cam="init"] .scan-guide { display: none; }
+  .sg-scene { width: 72px; height: 58px; perspective: 320px; display: flex; align-items: center; justify-content: center; }
+  .sg-cube { position: relative; width: 44px; height: 44px; transform-style: preserve-3d; }
+  .sg-face {
+    position: absolute; width: 44px; height: 44px; border-radius: 5px;
+    background-color: #5d6979;
+    background-image:
+      linear-gradient(135deg, rgba(255,255,255,.30), rgba(255,255,255,0) 46%),
+      linear-gradient(rgba(0,0,0,.45) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, rgba(0,0,0,.45) 1.5px, transparent 1.5px);
+    background-size: cover, 33.34% 33.34%, 33.34% 33.34%;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.6), inset 0 0 0 3px rgba(255,255,255,.08);
+  }
+  /* Faces colored with the app palette so a turn reads as an obvious 3D rotation. */
+  .sg-front  { transform: translateZ(22px);                 background-color: #00a44a; }
+  .sg-back   { transform: rotateY(180deg) translateZ(22px); background-color: #1d63ff; }
+  .sg-right  { transform: rotateY(90deg)  translateZ(22px); background-color: #d6261f; }
+  .sg-left   { transform: rotateY(-90deg) translateZ(22px); background-color: #ff7a18; }
+  .sg-top    { transform: rotateX(90deg)  translateZ(22px); background-color: #f7f7f7; }
+  .sg-bottom { transform: rotateX(-90deg) translateZ(22px); background-color: #ffd400; }
+  .sg-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--text); text-align: center; line-height: 1.15; opacity: .92;
+  }
+  /* Directional arrow that mirrors the guide cube's motion: spin -> left, tip the top
+     in -> down, tip the bottom in -> up. The wrapper sets the heading; the inner span
+     slides toward the tip so the rotation direction reads at a glance. */
+  .sg-arrow { height: 20px; display: flex; align-items: center; justify-content: center; color: var(--accent-bright); }
+  .sg-arrow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+  .sg-arrow-i { display: inline-flex; animation: sg-arrow-slide 1.3s ease-in-out infinite; }
+  .scan-guide[data-gesture="present"] .sg-arrow { visibility: hidden; }
+  .scan-guide[data-gesture="spin"]     .sg-arrow { transform: rotate(0deg); }
+  .scan-guide[data-gesture="tip-fwd"]  .sg-arrow { transform: rotate(-90deg); }
+  .scan-guide[data-gesture="tip-back"] .sg-arrow { transform: rotate(90deg); }
+  @keyframes sg-arrow-slide { 0%, 100% { transform: translateX(4px); } 50% { transform: translateX(-4px); } }
+  .scan-guide[data-gesture="present"]  .sg-cube { animation: sg-present 4.8s ease-in-out infinite; }
+  .scan-guide[data-gesture="spin"]     .sg-cube { animation: sg-spin    3s   ease-in-out infinite; }
+  .scan-guide[data-gesture="tip-fwd"]  .sg-cube { animation: sg-tipfwd  3s   ease-in-out infinite; }
+  .scan-guide[data-gesture="tip-back"] .sg-cube { animation: sg-tipback 3s   ease-in-out infinite; }
+  /* Gentle continuous orbit so the held face always looks like a solid 3D cube. */
+  @keyframes sg-present {
+    0%   { transform: rotateX(-20deg) rotateY(-32deg); }
+    50%  { transform: rotateX(-10deg) rotateY(24deg); }
+    100% { transform: rotateX(-20deg) rotateY(-32deg); }
+  }
+  /* Quarter-turn spin; a constant tilt keeps a side face visible throughout the turn. */
+  @keyframes sg-spin {
+    0%, 14%  { transform: rotateX(-16deg) rotateY(-14deg);   opacity: 1; }
+    58%, 78% { transform: rotateX(-16deg) rotateY(-104deg);  opacity: 1; }
+    88%      { transform: rotateX(-16deg) rotateY(-104deg);  opacity: 0; }
+    89%      { transform: rotateX(-16deg) rotateY(-14deg);   opacity: 0; }
+    100%     { transform: rotateX(-16deg) rotateY(-14deg);   opacity: 1; }
+  }
+  @keyframes sg-tipfwd {
+    0%, 14%  { transform: rotateY(-16deg) rotateX(-12deg);   opacity: 1; }
+    58%, 78% { transform: rotateY(-16deg) rotateX(-102deg);  opacity: 1; }
+    88%      { transform: rotateY(-16deg) rotateX(-102deg);  opacity: 0; }
+    89%      { transform: rotateY(-16deg) rotateX(-12deg);   opacity: 0; }
+    100%     { transform: rotateY(-16deg) rotateX(-12deg);   opacity: 1; }
+  }
+  @keyframes sg-tipback {
+    0%, 14%  { transform: rotateY(-16deg) rotateX(12deg);    opacity: 1; }
+    58%, 78% { transform: rotateY(-16deg) rotateX(102deg);   opacity: 1; }
+    88%      { transform: rotateY(-16deg) rotateX(102deg);   opacity: 0; }
+    89%      { transform: rotateY(-16deg) rotateX(12deg);    opacity: 0; }
+    100%     { transform: rotateY(-16deg) rotateX(12deg);    opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scan-guide .sg-cube { animation: none !important; }
+    .scan-guide[data-gesture="present"]  .sg-cube { transform: rotateX(-16deg) rotateY(-26deg); }
+    .scan-guide[data-gesture="spin"]     .sg-cube { transform: rotateX(-16deg) rotateY(-58deg); }
+    .scan-guide[data-gesture="tip-fwd"]  .sg-cube { transform: rotateY(-16deg) rotateX(-58deg); }
+    .scan-guide[data-gesture="tip-back"] .sg-cube { transform: rotateY(-16deg) rotateX(58deg); }
+    .sg-arrow-i { animation: none !important; }
+  }
+  @media (max-width: 640px) { .scan-guide { transform: scale(.82); } }
 
   /* Editable net (review mode) */
   .scan-review { display: none; flex-direction: column; gap: 16px; align-items: center; width: 100%; padding: 8px 0 4px; }
@@ -526,13 +636,6 @@
   }
   .net-cell:not(.center):hover { transform: scale(1.1); }
   .net-cell.center { cursor: default; box-shadow: inset 0 0 0 2px rgba(0,0,0,.55); }
-  .scan-palette { display: flex; gap: 10px; }
-  .pal {
-    width: 30px; height: 30px; border-radius: 8px; border: 2px solid transparent; cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); transition: transform .08s;
-  }
-  .pal:hover { transform: scale(1.08); }
-  .pal.sel { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
 
   .scan-foot { flex: 0 0 auto; padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 11px; align-items: center; }
   .scan-steps { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
@@ -550,9 +653,13 @@
   .scan-msg { min-height: 16px; margin: 0; font-size: 12.5px; line-height: 1.4; text-align: center; }
   .scan-msg.ok { color: var(--accent-bright); }
   .scan-msg.err { color: #ff7b72; }
-  .scan-actions { display: flex; gap: 10px; }
+  .scan-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .scan-overlay[data-mode="camera"] #scanReviewActions { display: none; }
   .scan-overlay[data-mode="review"] #scanCamActions { display: none; }
+  .scan-overlay[data-mode="calibrate"] #scanCamActions,
+  .scan-overlay[data-mode="calibrate"] #scanReviewActions,
+  .scan-overlay[data-mode="camera"] #scanCalibActions,
+  .scan-overlay[data-mode="review"] #scanCalibActions { display: none; }
   .scan-btn {
     height: 44px; padding: 0 22px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600;
     border: 1px solid var(--panel-border); background: rgba(255,255,255,.06); color: var(--text);
@@ -750,21 +857,40 @@
       <div class="scan-stage" id="scanStage">
         <video id="scanVideo" playsinline autoplay muted></video>
         <div class="scan-grid" id="scanGrid" aria-hidden="true"></div>
+        <div class="scan-guide" id="scanGuide" data-gesture="present" aria-hidden="true">
+          <div class="sg-scene">
+            <div class="sg-cube">
+              <div class="sg-face sg-front"></div>
+              <div class="sg-face sg-back"></div>
+              <div class="sg-face sg-right"></div>
+              <div class="sg-face sg-left"></div>
+              <div class="sg-face sg-top"></div>
+              <div class="sg-face sg-bottom"></div>
+            </div>
+          </div>
+          <div class="sg-arrow"><span class="sg-arrow-i"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <span class="sg-label" id="scanGuideLabel">Hold steady</span>
+        </div>
+        <div class="scan-calib" id="scanCalib" aria-hidden="true"></div>
         <div class="scan-cam-error" id="scanCamError">
           <span id="scanCamErrorMsg">We couldn't access your camera.</span>
           <button class="scan-btn" id="scanCamRetry">Try again</button>
         </div>
       </div>
       <div class="scan-review" id="scanReview">
-        <p class="scan-review-help">Tap a color below, then tap any sticker to correct it. Centers are fixed.</p>
+        <p class="scan-review-help">Tap a sticker to cycle its color until the net matches your cube. Centers are fixed.</p>
         <div class="scan-net" id="scanNet"></div>
-        <div class="scan-palette" id="scanPalette"></div>
       </div>
     </div>
     <div class="scan-foot">
       <div class="scan-steps" id="scanSteps"></div>
       <p class="scan-instruction" id="scanInstruction"></p>
       <p class="scan-msg" id="scanMsg" aria-live="polite"></p>
+      <div class="scan-actions" id="scanCalibActions">
+        <button class="scan-btn" id="scanCalibBack">Back</button>
+        <button class="scan-btn" id="scanCalibSkip">Skip</button>
+        <button class="scan-btn primary" id="scanCalibCapture" disabled>Capture color</button>
+      </div>
       <div class="scan-actions" id="scanCamActions">
         <button class="scan-btn" id="scanBack">Back</button>
         <button class="scan-btn primary" id="scanCapture" disabled>Capture face</button>
@@ -1542,12 +1668,40 @@
       const glue = cubeSrc + '\n' + solveSrc + '\n' + `
         var Cube = self.Cube;
         Cube.initSolver();
+        // A facelet string can have 9 of every color yet still be impossible to
+        // build (one twisted corner, one flipped edge, or two swapped pieces).
+        // cubejs' two-phase search never terminates on those, so screen the input
+        // through the three classic solvability invariants before ever solving.
+        function isPerm(a, n) {
+          if (a.length !== n) return false;
+          var seen = {};
+          for (var i = 0; i < n; i++) { var x = a[i]; if (x < 0 || x >= n || seen[x]) return false; seen[x] = true; }
+          return true;
+        }
+        function permParity(a) {
+          var v = a.slice(), p = 0;
+          for (var i = 0; i < v.length; i++) { while (v[i] !== i) { var j = v[i], t = v[i]; v[i] = v[j]; v[j] = t; p ^= 1; } }
+          return p;
+        }
+        function unsolvableReason(c) {
+          if (!isPerm(c.cp, 8) || !isPerm(c.ep, 12)) return 'Some stickers form impossible pieces.';
+          var co = 0, eo = 0, i;
+          for (i = 0; i < c.co.length; i++) co += c.co[i];
+          if (co % 3 !== 0) return 'A corner looks twisted.';
+          for (i = 0; i < c.eo.length; i++) eo += c.eo[i];
+          if (eo % 2 !== 0) return 'An edge looks flipped.';
+          if (permParity(c.cp) !== permParity(c.ep)) return 'Two pieces look swapped.';
+          return null;
+        }
         self.postMessage({ type: 'ready' });
         self.onmessage = function (e) {
           var d = e.data;
           if (!d || d.type !== 'solve') return;
           try {
-            var solution = Cube.fromString(d.facelets).solve();
+            var cube = Cube.fromString(d.facelets);
+            var reason = unsolvableReason(cube);
+            if (reason) { self.postMessage({ type: 'solveError', id: d.id, error: reason, unsolvable: true }); return; }
+            var solution = cube.solve();
             self.postMessage({ type: 'solved', id: d.id, solution: solution });
           } catch (err) {
             self.postMessage({ type: 'solveError', id: d.id, error: String((err && err.message) || err) });
@@ -1563,34 +1717,54 @@
           solverReadyWaiters.splice(0).forEach(fn => fn());
         } else if (d.type === 'solved') {
           const job = solveJobs.get(d.id);
-          if (job) { solveJobs.delete(d.id); job.resolve(d.solution); }
+          if (job) { clearTimeout(job.timer); solveJobs.delete(d.id); job.resolve(d.solution); }
         } else if (d.type === 'solveError') {
           const job = solveJobs.get(d.id);
-          if (job) { solveJobs.delete(d.id); job.reject(new Error(d.error)); }
+          if (job) {
+            clearTimeout(job.timer);
+            solveJobs.delete(d.id);
+            const err = new Error(d.error);
+            if (d.unsolvable) err.unsolvable = true;
+            job.reject(err);
+          }
         }
       };
       solverWorker.onerror = () => {
         solverState = 'error';
         solverReadyWaiters.splice(0);
-        solveJobs.forEach(job => job.reject(new Error('Solver failed to load')));
+        solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error('Solver failed to load')); });
         solveJobs.clear();
       };
     } catch (err) {
       solverState = 'error';
       solverReadyWaiters.splice(0);
-      solveJobs.forEach(job => job.reject(new Error('Solver unavailable')));
+      solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error('Solver unavailable')); });
       solveJobs.clear();
     }
+  }
+
+  // Watchdog: even with the up-front solvability screen, never let a solve hang the
+  // UI. A genuinely solvable cube returns in well under a second, so if the worker
+  // goes silent past this budget we tear it down; the next attempt rebuilds it.
+  const SOLVE_TIMEOUT_MS = 12000;
+  function resetSolver(reason) {
+    if (solverWorker) { try { solverWorker.terminate(); } catch (_) {} }
+    solverWorker = null;
+    solverState = 'none';
+    solverReadyWaiters.splice(0);
+    solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error(reason)); });
+    solveJobs.clear();
   }
 
   function solveFacelets(facelets) {
     return new Promise((resolve, reject) => {
       if (solverState === 'error') { reject(new Error('Solver unavailable')); return; }
       const id = ++solveSeq;
-      solveJobs.set(id, { resolve, reject });
+      const timer = setTimeout(() => { if (solveJobs.has(id)) resetSolver('timeout'); }, SOLVE_TIMEOUT_MS);
+      solveJobs.set(id, { resolve, reject, timer });
       const send = () => {
         if (solverWorker) solverWorker.postMessage({ type: 'solve', id, facelets });
-        else { solveJobs.delete(id); reject(new Error('Solver unavailable')); }
+        else { clearTimeout(timer); solveJobs.delete(id); reject(new Error('Solver unavailable')); }
       };
       if (solverState === 'ready') send();
       else solverReadyWaiters.push(send);
@@ -1604,20 +1778,38 @@
   const NET_POS = { U: [0, 1], L: [1, 0], F: [1, 1], R: [1, 2], B: [1, 3], D: [2, 1] };
   const FACE_NAME = { U: 'Up', R: 'Right', F: 'Front', D: 'Down', L: 'Left', B: 'Back' };
   const FACE_INSTR = {
-    F: 'Pick any side as the front and hold it flat to the camera. Keep this same side on top for the next three steps.',
-    R: 'Spin the cube a quarter-turn so its right-hand side faces the camera, keeping the same side on top.',
-    B: 'Spin another quarter-turn the same way to show the back, keeping the same side on top.',
-    L: 'Spin another quarter-turn the same way to show the left side, keeping the same side on top.',
-    U: 'Face the cube forward again, then tip it forward so the top faces the camera (front edge ends at the bottom).',
-    D: 'From front-facing, tip the cube backward so the bottom faces the camera (front edge ends at the top).',
+    F: 'Hold any face flat to the camera \u2014 that\u2019s your front. Keep this same face on top for the next 3 turns.',
+    R: 'Turn the cube a quarter-turn in the arrow\u2019s direction to bring the next side into view. Keep the same face on top.',
+    B: 'Turn another quarter-turn the same way \u2014 the back comes into view. Same face stays on top.',
+    L: 'Turn once more the same way to show the last side. Same face on top.',
+    U: 'Now tip the cube so its top tilts toward the camera (follow the arrow).',
+    D: 'Last one \u2014 tip the cube so its bottom tilts toward the camera (follow the arrow).',
+  };
+  // Per-step rotation gesture shown by the on-camera 3D guide cube + arrow. The first
+  // face is held flat; R/B/L are successive quarter-turn spins; U/D tip the cube
+  // forward/back. The arrow always mirrors the guide cube's motion direction.
+  const SCAN_GESTURE = {
+    F: { type: 'present',  label: 'Hold steady' },
+    R: { type: 'spin',     label: 'Turn this way' },
+    B: { type: 'spin',     label: 'Turn again' },
+    L: { type: 'spin',     label: 'Turn again' },
+    U: { type: 'tip-fwd',  label: 'Tip top in' },
+    D: { type: 'tip-back', label: 'Tip bottom in' },
   };
   // Representative display colors per face letter (orange kept distinct from red).
   const FACE_COLOR = { U: '#f7f7f7', R: '#d6261f', F: '#00a44a', D: '#ffd400', L: '#ff7a18', B: '#1d63ff' };
+  // Plain color names for the calibration wizard (each face's center is a fixed color).
+  const COLOR_NAME = { U: 'White', R: 'Red', F: 'Green', D: 'Yellow', L: 'Orange', B: 'Blue' };
+  // Up-front calibration order: white first as the neutral anchor, then warm -> cool.
+  const CALIB_ORDER = ['U', 'R', 'L', 'D', 'F', 'B'];
+  const CALIB_FRAC = 0.55;   // central sampling box, as a fraction of the stage's short side
 
   const scanData = {};       // faceKey -> [9] {r,g,b}
+  const calibData = {};      // faceKey -> {h,s,v} measured from an up-front color close-up
+  const scanOverride = {};   // faceKey -> [9] letters|null: live taps that pin a sticker's color
   let netLetters = {};       // faceKey -> [9] letters (editable after classify)
   let scanStep = 0;
-  let paintColor = 'U';
+  let calibStep = 0;
   let scanStream = null;
 
   // ---- DOM refs ----
@@ -1625,41 +1817,71 @@
   const scanVideo = document.getElementById('scanVideo');
   const scanStage = document.getElementById('scanStage');
   const scanGrid = document.getElementById('scanGrid');
+  const scanGuide = document.getElementById('scanGuide');
+  const scanGuideLabel = document.getElementById('scanGuideLabel');
   const scanSteps = document.getElementById('scanSteps');
   const scanInstruction = document.getElementById('scanInstruction');
   const scanMsg = document.getElementById('scanMsg');
   const scanNet = document.getElementById('scanNet');
-  const scanPalette = document.getElementById('scanPalette');
   const scanHeading = document.getElementById('scanHeading');
   const scanCapture = document.getElementById('scanCapture');
   const scanBackBtn = document.getElementById('scanBack');
   const scanSolveBtn = document.getElementById('scanSolve');
+  const scanCalib = document.getElementById('scanCalib');
+  const scanCalibCapture = document.getElementById('scanCalibCapture');
+  const scanCalibBack = document.getElementById('scanCalibBack');
+  const scanCalibSkip = document.getElementById('scanCalibSkip');
   const scanCamErrorMsg = document.getElementById('scanCamErrorMsg');
   const toastEl = document.getElementById('toast');
 
   for (let i = 0; i < 9; i++) {
     const d = document.createElement('div');
-    d.className = 'gc';
+    d.className = i === 4 ? 'gc center' : 'gc';
+    if (i !== 4) d.addEventListener('click', () => onLiveCellTap(i));   // center defines the face
     scanGrid.appendChild(d);
   }
 
   // ---- Color sampling & classification ----
-  // sRGB -> CIE Lab, for perceptually sane color distance (separates red/orange).
-  function rgb2lab(r, g, b) {
-    let R = r / 255, G = g / 255, B = b / 255;
-    R = R > 0.04045 ? Math.pow((R + 0.055) / 1.055, 2.4) : R / 12.92;
-    G = G > 0.04045 ? Math.pow((G + 0.055) / 1.055, 2.4) : G / 12.92;
-    B = B > 0.04045 ? Math.pow((B + 0.055) / 1.055, 2.4) : B / 12.92;
-    let x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
-    let y = (R * 0.2126 + G * 0.7152 + B * 0.0722);
-    let z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
-    const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
-    x = f(x); y = f(y); z = f(z);
-    return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+  // sRGB -> HSV. Hue (0..360) is brightness-independent, so it identifies a sticker's
+  // color even when glare or exposure washes it out; saturation isolates the one
+  // near-neutral face (white). This survives real-world lighting far better than an
+  // RGB/Lab distance, which let desaturated stickers collapse onto white.
+  function rgb2hsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h, s: max === 0 ? 0 : d / max, v: max };
   }
-  function labDist(a, b) {
-    const la = rgb2lab(a.r, a.g, a.b), lb = rgb2lab(b.r, b.g, b.b);
-    return (la[0] - lb[0]) ** 2 + (la[1] - lb[1]) ** 2 + (la[2] - lb[2]) ** 2;
+  function hueDist(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+  }
+  // Reduce a sampled patch to one representative color. Glossy stickers reflect the screen
+  // and room lights as bright near-grey highlights, and the inter-sticker grid lines / shadows
+  // are near-black; both drag a simple average toward white or black and cause misreads. We
+  // drop those contaminants and take the per-channel MEDIAN of what survives: unlike a mean,
+  // a median ignores the remaining glare speckle and edge bleed entirely, so a sticker with a
+  // big reflection still reports its true body color. If a patch is almost all glare/shadow
+  // (e.g. a genuinely bright white sticker), median the raw pixels instead so it isn't lost.
+  function patchColor(data) {
+    const kr = [], kg = [], kb = [], ar = [], ag = [], ab = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      ar.push(r); ag.push(g); ab.push(b);
+      const { s, v } = rgb2hsv(r, g, b);
+      if (v > 0.92 && s < 0.18) continue;   // specular glare / reflection blowout
+      if (v < 0.10) continue;               // grid line / deep shadow
+      kr.push(r); kg.push(g); kb.push(b);
+    }
+    const median = (a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; };
+    if (kr.length >= ar.length * 0.2) return { r: median(kr), g: median(kg), b: median(kb) };
+    return { r: median(ar), g: median(ag), b: median(ab) };
   }
 
   const capCanvas = document.createElement('canvas');
@@ -1680,34 +1902,172 @@
     const scale = Math.max(sw / vw, sh / vh);
     const side = (0.7 * Math.min(sw, sh)) / scale;
     const x0 = vw / 2 - side / 2, y0 = vh / 2 - side / 2;
-    const cell = side / 3, patch = Math.max(6, Math.floor(cell * 0.4));
+    const cell = side / 3, patch = Math.max(8, Math.floor(cell * 0.5));
     const out = [];
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 3; c++) {
         const cx = x0 + (c + 0.5) * cell, cy = y0 + (r + 0.5) * cell;
         const px = Math.max(0, Math.min(vw - patch, Math.floor(cx - patch / 2)));
         const py = Math.max(0, Math.min(vh - patch, Math.floor(cy - patch / 2)));
-        const data = capCtx.getImageData(px, py, patch, patch).data;
-        let R = 0, G = 0, B = 0, n = 0;
-        for (let i = 0; i < data.length; i += 4) { R += data[i]; G += data[i + 1]; B += data[i + 2]; n++; }
-        out.push({ r: R / n, g: G / n, b: B / n });
+        out.push(patchColor(capCtx.getImageData(px, py, patch, patch).data));
       }
     }
     return out;
   }
 
-  // Classify every facelet as the face whose center color it most resembles. This
-  // is robust to lighting and to non-standard color schemes.
+  // Sample one large central patch for the up-front color calibration: the user fills the
+  // box with a single color, so a wide average (minus glare/shadow) nails that color cleanly.
+  function sampleCalibCenter() {
+    const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+    if (!vw || !vh) return null;
+    capCanvas.width = vw; capCanvas.height = vh;
+    capCtx.drawImage(scanVideo, 0, 0, vw, vh);
+    const sw = scanStage.clientWidth, sh = scanStage.clientHeight;
+    const scale = Math.max(sw / vw, sh / vh);
+    const side = (CALIB_FRAC * Math.min(sw, sh)) / scale;
+    const x0 = Math.max(0, Math.floor(vw / 2 - side / 2));
+    const y0 = Math.max(0, Math.floor(vh / 2 - side / 2));
+    const w = Math.min(vw - x0, Math.max(8, Math.floor(side)));
+    const h = Math.min(vh - y0, Math.max(8, Math.floor(side)));
+    return patchColor(capCtx.getImageData(x0, y0, w, h).data);
+  }
+
+  // The live on-camera preview and the final review net share the same per-cube color
+  // centers, so they adapt to whatever this physical cube actually looks like. The preview
+  // matches each pixel independently: white is the single near-neutral center (lowest
+  // saturation) — a sticker reads white when its saturation falls below the midpoint between
+  // white and the least-saturated colored face — and everything else is matched by hue alone,
+  // which shrugs off glare, shadow and exposure shifts. The committed net additionally
+  // balances all 54 facelets to exactly nine of each color (see classifyAll), so it can
+  // correct a systematic misread that the per-pixel preview can't.
+  //
+  // Before a face has been captured we have no measured center for it, so fall back to
+  // these nominal anchors; as faces are scanned the model converges to the real ones.
+  const DEFAULT_HSV = {
+    U: { h:   0, s: 0.05, v: 0.95 },   // white (near-neutral)
+    R: { h:   0, s: 0.85, v: 0.85 },   // red
+    L: { h:  24, s: 0.95, v: 1.00 },   // orange
+    D: { h:  52, s: 0.95, v: 1.00 },   // yellow
+    F: { h: 140, s: 0.75, v: 0.62 },   // green
+    B: { h: 215, s: 0.80, v: 0.95 },   // blue
+  };
+  // A measured up-front calibration close-up is the cleanest per-cube anchor, so prefer it;
+  // otherwise use this face's scanned center sticker, falling back to the nominal default.
+  function centerHsv(f) {
+    if (calibData[f]) return calibData[f];
+    if (scanData[f]) return rgb2hsv(scanData[f][4].r, scanData[f][4].g, scanData[f][4].b);
+    return DEFAULT_HSV[f];
+  }
+  // Build the relative color model from the centers captured so far. `extra` lets the
+  // live preview anchor the face currently in view by its own freshly-sampled center,
+  // so the tints you see while aiming are exactly what gets saved when you capture.
+  function buildModel(extra) {
+    const centers = SCAN_ORDER.map(f => ({ f, hsv: (extra && extra.f === f) ? extra.hsv : centerHsv(f) }));
+    const whiteRef = centers.reduce((a, b) => (b.hsv.s < a.hsv.s ? b : a));
+    const chromatic = centers.filter(c => c !== whiteRef);
+    const minChromaS = Math.min(...chromatic.map(c => c.hsv.s));
+    const sThresh = (whiteRef.hsv.s + minChromaS) / 2 + 1e-6;
+    return { whiteRef, chromatic, sThresh };
+  }
+  function classifyPx(px, m) {
+    const hsv = rgb2hsv(px.r, px.g, px.b);
+    if (hsv.s < m.sThresh) return m.whiteRef.f;
+    let best = m.chromatic[0], bd = Infinity;
+    for (const c of m.chromatic) { const d = hueDist(hsv.h, c.hsv.h); if (d < bd) { bd = d; best = c; } }
+    return best.f;
+  }
+  // Project an HSV color onto the chroma plane: hue as angle, saturation as radius. Distance
+  // here blends hue and saturation while ignoring brightness, so glare/shadow don't bias it.
+  function chromaAB(hsv) {
+    const rad = hsv.h * Math.PI / 180;
+    return { a: hsv.s * Math.cos(rad), b: hsv.s * Math.sin(rad) };
+  }
+  // Commit the review net by solving all 54 facelets together. Per-pixel matching can't undo
+  // a *systematic* misread: if this cube's red photographs orange-ish, every red sticker flips
+  // and you get e.g. 18 orange / 0 red — wrong, and not even a legal cube. A real 3x3 has
+  // exactly nine of each color, so we score every facelet against the six centers in the chroma
+  // plane and hand colors out cheapest-first with each capped at nine. That cap fixes red/orange
+  // over-filling AND stops glare-desaturated stickers from collapsing onto white, and guarantees
+  // a count-valid result. Greedy suffices: on a clean scan every facelet still lands on its
+  // nearest center (no cap is ever hit), so nothing changes there.
   function classifyAll() {
-    const centers = SCAN_ORDER.map(f => scanData[f][4]);
-    netLetters = {};
+    const centers = SCAN_ORDER.map(f => ({ f, ...chromaAB(centerHsv(f)) }));
+    const cells = [];
     for (const f of SCAN_ORDER) {
-      netLetters[f] = scanData[f].map(px => {
-        let best = 0, bd = Infinity;
-        centers.forEach((c, i) => { const d = labDist(px, c); if (d < bd) { bd = d; best = i; } });
-        return SCAN_ORDER[best];
-      });
+      scanData[f].forEach((px, i) => cells.push({ f, i, ...chromaAB(rgb2hsv(px.r, px.g, px.b)) }));
     }
+    const pairs = [];
+    cells.forEach((cell, ci) => {
+      for (const c of centers) {
+        const da = cell.a - c.a, db = cell.b - c.b;
+        pairs.push({ cost: da * da + db * db, ci, f: c.f });
+      }
+    });
+    pairs.sort((x, y) => x.cost - y.cost);
+    const cap = {}; for (const f of SCAN_ORDER) cap[f] = 9;
+    const pick = new Array(cells.length).fill(null);
+    for (const { ci, f } of pairs) {
+      if (pick[ci] === null && cap[f] > 0) { pick[ci] = f; cap[f]--; }
+    }
+    netLetters = {}; for (const f of SCAN_ORDER) netLetters[f] = new Array(9);
+    cells.forEach((cell, ci) => { netLetters[cell.f][cell.i] = pick[ci]; });
+  }
+
+  // ---- Live color preview ----
+  // While the camera is live, continuously sample the nine guide cells and tint them
+  // with the color we'd save, so you can confirm the read *before* capturing. It shares the
+  // same per-cube centers as the final net (anchored on the face in view), so the tints match
+  // what gets committed — except where the net's "nine of each" balancing corrects a misread.
+  const LIVE_INTERVAL = 90;            // ms between samples (~11 fps) to spare the CPU
+  let livePreviewOn = false, livePreviewRAF = 0, lastLiveTs = 0;
+
+  function tint(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
+  function clearLiveTints() {
+    for (const gc of scanGrid.children) { gc.style.backgroundColor = ''; gc.classList.remove('pinned'); }
+    scanCalib.style.backgroundColor = '';
+  }
+  function livePreviewTick(ts) {
+    if (!livePreviewOn) return;
+    livePreviewRAF = requestAnimationFrame(livePreviewTick);
+    const mode = scanModal.dataset.mode;
+    if (scanModal.hidden || scanModal.dataset.cam !== 'live' || (mode !== 'camera' && mode !== 'calibrate')) return;
+    if (ts - lastLiveTs < LIVE_INTERVAL) return;
+    lastLiveTs = ts;
+    if (mode === 'calibrate') {
+      const c = sampleCalibCenter();
+      if (c) scanCalib.style.backgroundColor = `rgba(${c.r | 0}, ${c.g | 0}, ${c.b | 0}, .82)`;
+      return;
+    }
+    const cells = sampleCurrentFace();
+    if (!cells) return;
+    const face = CAPTURE_ORDER[scanStep];
+    const m = buildModel({ f: face, hsv: rgb2hsv(cells[4].r, cells[4].g, cells[4].b) });
+    const ov = scanOverride[face];
+    const gcs = scanGrid.children;
+    for (let i = 0; i < 9; i++) {
+      if (ov && ov[i]) {
+        gcs[i].style.backgroundColor = tint(FACE_COLOR[ov[i]], 0.96);
+        gcs[i].classList.add('pinned');
+      } else {
+        gcs[i].style.backgroundColor = tint(FACE_COLOR[classifyPx(cells[i], m)], 0.78);
+        gcs[i].classList.remove('pinned');
+      }
+    }
+  }
+  function startLivePreview() {
+    if (livePreviewOn) return;
+    livePreviewOn = true;
+    lastLiveTs = 0;
+    livePreviewRAF = requestAnimationFrame(livePreviewTick);
+  }
+  function stopLivePreview() {
+    livePreviewOn = false;
+    if (livePreviewRAF) cancelAnimationFrame(livePreviewRAF);
+    livePreviewRAF = 0;
+    clearLiveTints();
   }
 
   // ---- UI helpers ----
@@ -1717,9 +2077,13 @@
   }
 
   function layoutGuide() {
-    const s = 0.7 * Math.min(scanStage.clientWidth, scanStage.clientHeight);
+    const short = Math.min(scanStage.clientWidth, scanStage.clientHeight);
+    const s = 0.7 * short;
     scanGrid.style.width = s + 'px';
     scanGrid.style.height = s + 'px';
+    const cs = CALIB_FRAC * short;
+    scanCalib.style.width = cs + 'px';
+    scanCalib.style.height = cs + 'px';
   }
 
   function renderSteps() {
@@ -1741,10 +2105,37 @@
 
   function updateCameraStep() {
     const f = CAPTURE_ORDER[scanStep];
-    scanInstruction.innerHTML = `<b>Face ${scanStep + 1} of 6 — ${FACE_NAME[f]}.</b> ${FACE_INSTR[f]}`;
+    scanInstruction.innerHTML = `<b>Face ${scanStep + 1} of 6 — ${FACE_NAME[f]}.</b> ${FACE_INSTR[f]} Tap a square to fix a mis-read color.`;
+    const gesture = SCAN_GESTURE[f];
+    scanGuide.dataset.gesture = gesture.type;
+    scanGuideLabel.textContent = gesture.label;
     scanBackBtn.disabled = scanStep === 0;
     scanCapture.textContent = scanStep === 5 ? 'Capture & review' : 'Capture face';
     renderSteps();
+  }
+
+  function renderCalibSteps() {
+    scanSteps.innerHTML = '';
+    CALIB_ORDER.forEach((f, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'scan-chip' + (i === calibStep ? ' active' : '') + (calibData[f] ? ' done' : '');
+      const sw = document.createElement('span');
+      sw.className = 'sw';
+      sw.style.background = FACE_COLOR[f];
+      chip.appendChild(sw);
+      chip.appendChild(document.createTextNode(COLOR_NAME[f]));
+      scanSteps.appendChild(chip);
+    });
+  }
+
+  function updateCalibStep() {
+    const f = CALIB_ORDER[calibStep];
+    scanInstruction.innerHTML = `<b>Color ${calibStep + 1} of 6 — ${COLOR_NAME[f]}.</b> Fill the outlined box with your cube\u2019s ${COLOR_NAME[f].toLowerCase()} stickers, then capture.`;
+    scanCalib.style.borderColor = FACE_COLOR[f];
+    scanCalib.style.backgroundColor = '';
+    scanCalibBack.disabled = calibStep === 0;
+    scanCalibCapture.textContent = calibStep === 5 ? 'Capture & scan' : 'Capture color';
+    renderCalibSteps();
   }
 
   function renderNet() {
@@ -1766,28 +2157,15 @@
           cell.disabled = true;
         } else {
           cell.addEventListener('click', () => {
-            netLetters[f][i] = paintColor;
-            cell.style.background = FACE_COLOR[paintColor];
-            cell.title = FACE_NAME[paintColor];
+            const next = SCAN_ORDER[(SCAN_ORDER.indexOf(netLetters[f][i]) + 1) % SCAN_ORDER.length];
+            netLetters[f][i] = next;
+            cell.style.background = FACE_COLOR[next];
+            cell.title = FACE_NAME[next];
             validateNet();
           });
         }
         scanNet.appendChild(cell);
       }
-    }
-  }
-
-  function renderPalette() {
-    scanPalette.innerHTML = '';
-    for (const f of SCAN_ORDER) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'pal' + (f === paintColor ? ' sel' : '');
-      b.style.background = FACE_COLOR[f];
-      b.title = FACE_NAME[f];
-      b.setAttribute('aria-label', FACE_NAME[f]);
-      b.addEventListener('click', () => { paintColor = f; renderPalette(); });
-      scanPalette.appendChild(b);
     }
   }
 
@@ -1812,12 +2190,11 @@
 
   // ---- State transitions ----
   function enterReview() {
+    stopLivePreview();
     scanModal.dataset.mode = 'review';
     scanHeading.textContent = 'Check the scan';
-    paintColor = 'U';
     scanSolveBtn.textContent = 'Solve it';
     renderNet();
-    renderPalette();
     validateNet();
   }
 
@@ -1825,9 +2202,10 @@
     scanModal.dataset.mode = 'camera';
     scanHeading.textContent = 'Scan your cube';
     scanStep = 0;
-    for (const f of CAPTURE_ORDER) delete scanData[f];
+    for (const f of CAPTURE_ORDER) { delete scanData[f]; delete scanOverride[f]; }
     setScanMsg('', null);
     updateCameraStep();
+    startLivePreview();
   }
 
   function onCapture() {
@@ -1837,11 +2215,62 @@
     scanData[f] = cells;
     setScanMsg('', null);
     if (scanStep < 5) { scanStep++; updateCameraStep(); }
-    else { classifyAll(); enterReview(); }
+    else { classifyAll(); applyOverrides(); enterReview(); }
   }
 
   function onBack() {
     if (scanStep > 0) { scanStep--; updateCameraStep(); }
+  }
+
+  // Tap a live-preview sticker to pin its color when the auto-read is wrong (glare, odd light).
+  // Each tap cycles null (auto) -> each color -> null; a pin overrides this facelet in the net.
+  function onLiveCellTap(i) {
+    if (scanModal.dataset.mode !== 'camera' || scanModal.dataset.cam !== 'live') return;
+    const f = CAPTURE_ORDER[scanStep];
+    if (!scanOverride[f]) scanOverride[f] = new Array(9).fill(null);
+    const states = [null, ...SCAN_ORDER];
+    const ov = scanOverride[f][i] = states[(states.indexOf(scanOverride[f][i]) + 1) % states.length];
+    const gc = scanGrid.children[i];
+    if (ov) { gc.style.backgroundColor = tint(FACE_COLOR[ov], 0.96); gc.classList.add('pinned'); }
+    else { gc.classList.remove('pinned'); }
+  }
+
+  // Pinned live taps win over the auto-classified net (same role as editing a review cell).
+  function applyOverrides() {
+    for (const f of CAPTURE_ORDER) {
+      const ov = scanOverride[f];
+      if (!ov) continue;
+      for (let i = 0; i < 9; i++) if (ov[i]) netLetters[f][i] = ov[i];
+    }
+  }
+
+  // ---- Calibration phase (teach the per-cube color model before the geometric scan) ----
+  function startCapture() {
+    scanModal.dataset.mode = 'camera';
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    scanCalib.style.backgroundColor = '';
+    setScanMsg('', null);
+    updateCameraStep();
+  }
+
+  function onCalibCapture() {
+    const c = sampleCalibCenter();
+    if (!c) { setScanMsg('Camera is still warming up \u2014 give it a second.', 'err'); return; }
+    calibData[CALIB_ORDER[calibStep]] = rgb2hsv(c.r, c.g, c.b);
+    setScanMsg('', null);
+    if (calibStep < 5) { calibStep++; updateCalibStep(); }
+    else startCapture();
+  }
+
+  function onCalibBack() {
+    if (calibStep > 0) { calibStep--; updateCalibStep(); }
+  }
+
+  // Skip keeps whatever colors were calibrated so far (better anchors than the defaults);
+  // skipping at the very first color is identical to the original no-calibration flow.
+  function skipCalibration() {
+    startCapture();
   }
 
   async function onSolve() {
@@ -1866,7 +2295,16 @@
     } catch (err) {
       scanSolveBtn.disabled = false;
       scanSolveBtn.textContent = original;
-      setScanMsg('That layout isn\u2019t a solvable cube. Check the colors (watch for red vs orange) and try again.', 'err');
+      const reason = (err && err.message) || '';
+      let msg;
+      if (err && err.unsolvable) {
+        msg = `${reason} That can\u2019t happen on a real cube — it\u2019s often red vs orange. Fix the colors below, then tap \u201CSolve it\u201D again.`;
+      } else if (reason === 'Solver unavailable' || reason === 'Solver failed to load') {
+        msg = 'Couldn\u2019t load the solver. Check your connection, then tap \u201CSolve it\u201D again.';
+      } else {
+        msg = 'That layout doesn\u2019t look like a solvable cube. Double-check the colors below (watch red vs orange) and try again.';
+      }
+      setScanMsg(msg, 'err');
     }
   }
 
@@ -1915,7 +2353,9 @@
       await scanVideo.play();
       scanModal.dataset.cam = 'live';
       scanCapture.disabled = false;
+      scanCalibCapture.disabled = false;
       layoutGuide();
+      startLivePreview();
     } catch (err) {
       scanModal.dataset.cam = 'error';
       scanCamErrorMsg.textContent = (err && err.name === 'NotAllowedError')
@@ -1925,6 +2365,7 @@
   }
 
   function stopCamera() {
+    stopLivePreview();
     if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
     scanVideo.srcObject = null;
   }
@@ -1933,15 +2374,18 @@
 
   function openScanner() {
     scanModal.hidden = false;
-    scanModal.dataset.mode = 'camera';
-    scanHeading.textContent = 'Scan your cube';
+    scanModal.dataset.mode = 'calibrate';
+    scanHeading.textContent = 'Calibrate colors';
     scanStep = 0;
+    calibStep = 0;
     netLetters = {};
-    for (const f of CAPTURE_ORDER) delete scanData[f];
+    for (const f of CAPTURE_ORDER) { delete scanData[f]; delete scanOverride[f]; }
+    for (const f of CALIB_ORDER) delete calibData[f];
     scanCapture.disabled = true;
-    updateCameraStep();
+    scanCalibCapture.disabled = true;
+    updateCalibStep();
     layoutGuide();
-    ensureSolver();   // warm up the solver while the user scans
+    ensureSolver();   // warm up the solver while the user calibrates + scans
     startCamera();
     document.addEventListener('keydown', scanKeydown);
   }
@@ -1956,6 +2400,9 @@
   document.getElementById('scanClose').addEventListener('click', closeScanner);
   scanCapture.addEventListener('click', onCapture);
   scanBackBtn.addEventListener('click', onBack);
+  scanCalibCapture.addEventListener('click', onCalibCapture);
+  scanCalibBack.addEventListener('click', onCalibBack);
+  scanCalibSkip.addEventListener('click', skipCalibration);
   document.getElementById('scanRestart').addEventListener('click', backToCamera);
   scanSolveBtn.addEventListener('click', onSolve);
   document.getElementById('scanCamRetry').addEventListener('click', startCamera);
