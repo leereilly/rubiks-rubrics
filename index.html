@@ -706,6 +706,64 @@
   @media (prefers-reduced-motion: reduce) { .rc-cube { animation: none; transform: rotateY(-34deg); } }
   @media (max-width: 640px) { .scan-cube3d { --cs: 82px; width: 150px; height: 150px; } }
 
+  /* "How it works" explainer (review mode): a small, always-valid solved cube that folds
+     up from — and unfolds back into — the cross-shaped map, so the link between the 3D
+     cube and the flat net below reads at a glance. Faces use the same net-unfolding
+     rotations as the .rc-cube; the four side faces (and B, hinged off R) fold about the
+     edge they share with Front (transform-origin on the seam). Purely illustrative -> the
+     cube itself is aria-hidden and only the caption is announced. */
+  .scan-explain {
+    margin: 0; display: flex; align-items: center; justify-content: center;
+    gap: 4px 18px; flex-wrap: wrap; max-width: 442px;
+    padding: 8px 16px; border-radius: 12px;
+    background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--panel-border);
+  }
+  [data-theme="light"] .scan-explain { background: rgba(0,0,0,.03); }
+  .scan-explain-cap { margin: 0; font-size: 11.5px; line-height: 1.42; color: var(--text-dim); max-width: 230px; text-align: left; }
+  .se-stage { flex: 0 0 auto; width: 150px; height: 108px; display: flex; align-items: center; justify-content: center; perspective: 380px; perspective-origin: 50% 50%; }
+  .se-cube { position: relative; width: 30px; height: 30px; transform-style: preserve-3d; animation: se-orient 9s ease-in-out infinite; }
+  /* Each face is a 3x3-ruled square in its solved color, so the assembled cube is valid. */
+  .se-face {
+    position: absolute; width: 30px; height: 30px; box-sizing: border-box;
+    transform-style: preserve-3d; border-radius: 5px; background-color: var(--c);
+    background-image:
+      linear-gradient(rgba(0,0,0,.38) 1.4px, transparent 1.4px),
+      linear-gradient(90deg, rgba(0,0,0,.38) 1.4px, transparent 1.4px);
+    background-size: 33.34% 33.34%, 33.34% 33.34%;
+    box-shadow: inset 0 0 0 1.4px rgba(0,0,0,.5);
+    backface-visibility: hidden;
+  }
+  /* Laid out as the unfolded cross (U top, L/F/R/B across, D bottom); B hinges off R. */
+  .se-f { inset: 0; --c: #00a44a; }
+  .se-u { left: 0; bottom: 100%; transform-origin: 50% 100%; --c: #f7f7f7; animation: se-fold-u 9s ease-in-out infinite; }
+  .se-d { left: 0; top: 100%;    transform-origin: 50% 0%;   --c: #ffd400; animation: se-fold-d 9s ease-in-out infinite; }
+  .se-l { top: 0; right: 100%;   transform-origin: 100% 50%; --c: #ff7a18; animation: se-fold-l 9s ease-in-out infinite; }
+  .se-r { top: 0; left: 100%;    transform-origin: 0% 50%;   --c: #d6261f; animation: se-fold-r 9s ease-in-out infinite; }
+  .se-b { top: 0; left: 100%;    transform-origin: 0% 50%;   --c: #1d63ff; animation: se-fold-b 9s ease-in-out infinite; }
+  /* Hold flat (cross) -> fold into a solid cube -> hold -> unfold, on a loop. No opacity
+     is animated, which would flatten the preserve-3d layer mid-fold in Chrome. */
+  @keyframes se-orient {
+    0%, 14%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0); }
+    38%, 62%  { transform: rotateX(22deg) rotateY(-30deg) translateZ(15px); }
+    86%, 100% { transform: rotateX(0deg) rotateY(0deg) translateZ(0); }
+  }
+  @keyframes se-fold-u { 0%,14%{transform:rotateX(0)} 38%,62%{transform:rotateX(-90deg)} 86%,100%{transform:rotateX(0)} }
+  @keyframes se-fold-d { 0%,14%{transform:rotateX(0)} 38%,62%{transform:rotateX(90deg)}  86%,100%{transform:rotateX(0)} }
+  @keyframes se-fold-l { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(-90deg)} 86%,100%{transform:rotateY(0)} }
+  @keyframes se-fold-r { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(90deg)}  86%,100%{transform:rotateY(0)} }
+  @keyframes se-fold-b { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(90deg)}  86%,100%{transform:rotateY(0)} }
+  /* No motion: hold the assembled solid cube (still reads as a valid 3D cube). */
+  @media (prefers-reduced-motion: reduce) {
+    .se-cube { animation: none; transform: rotateX(22deg) rotateY(-30deg) translateZ(15px); }
+    .se-face { animation: none; }
+    .se-u { transform: rotateX(-90deg); }
+    .se-d { transform: rotateX(90deg); }
+    .se-l { transform: rotateY(-90deg); }
+    .se-r { transform: rotateY(90deg); }
+    .se-b { transform: rotateY(90deg); }
+  }
+  @media (max-width: 640px) { .scan-explain-cap { text-align: center; max-width: 300px; } }
+
   .scan-foot { flex: 0 0 auto; padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 11px; align-items: center; }
   .scan-steps { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
   .scan-chip {
@@ -722,6 +780,12 @@
   .scan-msg { min-height: 16px; margin: 0; font-size: 12.5px; line-height: 1.4; text-align: center; }
   .scan-msg.ok { color: var(--accent-bright); }
   .scan-msg.err { color: #ff7b72; }
+  /* Persistent reassurance shown only while actively reading colors (live capture +
+     calibration): the auto-detected colors never have to be perfect because every
+     sticker is editable on the review screen before solving. */
+  .scan-reassure { display: none; margin: 0; max-width: 540px; text-align: center; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+  .scan-overlay[data-mode="camera"] .scan-reassure,
+  .scan-overlay[data-mode="calibrate"] .scan-reassure { display: block; }
   .scan-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .scan-overlay[data-mode="camera"] #scanReviewActions { display: none; }
   .scan-overlay[data-mode="review"] #scanCamActions { display: none; }
@@ -924,7 +988,7 @@
   </div>
 
   <!-- Webcam cube scanner -->
-  <div id="scanModal" class="scan-overlay" hidden data-mode="camera" data-cam="init" role="dialog" aria-modal="true" aria-label="Scan a cube with your webcam">
+  <div id="scanModal" class="scan-overlay" hidden data-mode="calibrate" data-cam="init" role="dialog" aria-modal="true" aria-label="Scan a cube with your webcam">
     <div class="scan-bar">
       <div class="scan-title">
         <h2 id="scanHeading">Scan your cube</h2>
@@ -967,7 +1031,21 @@
         </div>
       </div>
       <div class="scan-review" id="scanReview">
-        <p class="scan-review-help">Your cube, in 3D and unfolded. Spin the cube (hover to pause) to compare it with the real one, then tap any sticker — centers included — to cycle its color until they match.</p>
+        <p class="scan-review-help" id="scanReviewHelp">Your cube, in 3D and unfolded. Spin the cube (hover to pause) to compare it with the real one, then tap any sticker — centers included — to cycle its color until they match.</p>
+        <figure class="scan-explain">
+          <div class="se-stage" aria-hidden="true">
+            <div class="se-cube">
+              <div class="se-face se-f"></div>
+              <div class="se-face se-u"></div>
+              <div class="se-face se-d"></div>
+              <div class="se-face se-l"></div>
+              <div class="se-face se-r">
+                <div class="se-face se-b"></div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="scan-explain-cap">Every cube unfolds into this flat map — each of its 6 sides becomes one square. That's the layout you're checking below.</figcaption>
+        </figure>
         <div class="scan-review-views">
           <div class="scan-cube3d" id="scanCube3d" aria-hidden="true"></div>
           <div class="scan-net" id="scanNet"></div>
@@ -977,6 +1055,7 @@
     <div class="scan-foot">
       <div class="scan-steps" id="scanSteps"></div>
       <p class="scan-instruction" id="scanInstruction"></p>
+      <p class="scan-reassure">&#128161; Don't worry about getting a perfect color match &mdash; you can always tweak any sticker by hand before we unscramble it.</p>
       <p class="scan-msg" id="scanMsg" aria-live="polite"></p>
       <div class="scan-actions" id="scanCalibActions">
         <button class="scan-btn" id="scanCalibBack">Back</button>
@@ -1038,6 +1117,10 @@
   const GITHUB  = ['#39d353', '#9be9a8', '#ebedf0', '#26a641', '#006d32', '#0e4429'];
 
   let palette = CLASSIC;
+  // Identity by default. A webcam scan sets this to a whole-cube color rotation so the
+  // solved render shows each color on the face the cube was physically held with, instead
+  // of snapping every solve to canonical white-up / green-front.
+  let faceColorPerm = [0, 1, 2, 3, 4, 5];
 
   // ---------------------------------------------------------------------------
   // Renderer / scene / camera
@@ -1121,10 +1204,18 @@
 
   function makeStickerMesh(faceId) {
     const mat = new THREE.MeshPhysicalMaterial({
-      color: palette[faceId], roughness: 0.32, metalness: 0.0,
+      color: palette[faceColorPerm[faceId]], roughness: 0.32, metalness: 0.0,
       clearcoat: 1.0, clearcoatRoughness: 0.18, envMapIntensity: 1.15,
     });
     return new THREE.Mesh(stickerGeo, mat);
+  }
+
+  // Repaint every sticker through the active palette and face-color rotation. Used by the
+  // GitHub-contributions toggle and by the scanner to apply a scanned cube's orientation.
+  function recolorStickers() {
+    for (const c of cubies)
+      for (const s of c.stickers)
+        s.mesh.material.color.set(palette[faceColorPerm[s.faceId]]);
   }
 
   function orientSticker(mesh, axis, sign) {
@@ -1290,6 +1381,10 @@
     stopPlaying();
     abortAnimation();
     resetToSolved();
+    // Any fresh scramble (random, custom, or rewound) renders in the canonical orientation;
+    // the scanner re-applies its own face-color rotation after calling setScramble.
+    faceColorPerm = [0, 1, 2, 3, 4, 5];
+    recolorStickers();
     scramble = moves;
     scrambleLabel = label != null ? label : moves.map(moveToNotation).join(' ');
     for (const m of scramble) applyMoveInstant(m);
@@ -1593,9 +1688,7 @@
 
   document.getElementById('ghToggle').addEventListener('change', (e) => {
     palette = e.target.checked ? GITHUB : CLASSIC;
-    for (const c of cubies)
-      for (const s of c.stickers)
-        s.mesh.material.color.set(palette[s.faceId]);
+    recolorStickers();
   });
 
   document.getElementById('rotToggle').addEventListener('change', (e) => {
@@ -1997,6 +2090,8 @@
   const SCAN_TEST_LABEL = scanTestBtn.textContent;
   const scanCamErrorMsg = document.getElementById('scanCamErrorMsg');
   const toastEl = document.getElementById('toast');
+  const scanReviewHelp = document.getElementById('scanReviewHelp');
+  const REVIEW_HELP_DEFAULT = scanReviewHelp.textContent;
 
   for (let i = 0; i < 9; i++) {
     const d = document.createElement('div');
@@ -2376,8 +2471,42 @@
         cube3dCells[f][i].style.background = FACE_COLOR[netLetters[f][i]];
   }
 
+  // Map a color letter to the visualizer's faceId (FACE_DEFS: 0=R 1=L 2=U 3=D 4=F 5=B).
+  const LETTER_TO_FACEID = { U: 2, R: 0, F: 4, D: 3, L: 1, B: 5 };
+
+  // The scan can be taken with the cube held in any orientation. normalizeFacelets snaps the
+  // solution to canonical centers, so the render would otherwise always show white-up/green-front
+  // (the "orange face turned green" report). Build the matching whole-cube color rotation
+  // (faceId -> palette index) — the exact inverse of normalizeFacelets' relabel — so the rendered
+  // scramble reproduces the physical cube. Returns null for a mis-scan (duplicate centers).
+  function scanOrientationPerm() {
+    const perm = [0, 1, 2, 3, 4, 5];
+    for (const d of SCAN_ORDER) {
+      const center = netLetters[d] && netLetters[d][4];
+      if (!(center in LETTER_TO_FACEID)) return null;
+      perm[LETTER_TO_FACEID[d]] = LETTER_TO_FACEID[center];
+    }
+    return new Set(perm).size === 6 ? perm : null;
+  }
+
   function buildFaceletString() {
     return SCAN_ORDER.map(f => netLetters[f].join('')).join('');
+  }
+
+  // cube.js only evaluates a facelet string correctly when the six centers sit in the
+  // canonical U,R,F,D,L,B order. A scan taken with the cube held in any other orientation
+  // (say the red face shown first, where "Up" is expected) lands the centers elsewhere —
+  // cube.js then mis-reads piece orientation off the wrong axis and falsely reports a valid
+  // cube as "two pieces swapped." Re-letter every facelet so the captured centers become
+  // U,R,F,D,L,B; that's a pure whole-cube rotation, so it changes neither solvability nor
+  // the eventual solution (applyScannedSolution rebuilds the on-screen cube from the solution
+  // itself). A duplicated center means a genuine mis-scan, so leave those for the solver to flag.
+  function normalizeFacelets(str) {
+    const centers = [4, 13, 22, 31, 40, 49].map(i => str[i]);
+    const remap = {};
+    SCAN_ORDER.forEach((f, k) => { remap[centers[k]] = f; });
+    if (Object.keys(remap).length !== 6) return str;
+    return [...str].map(ch => remap[ch]).join('');
   }
 
   function validateNet() {
@@ -2401,6 +2530,7 @@
     scanModal.dataset.mode = 'review';
     scanHeading.textContent = 'Check the scan';
     scanSolveBtn.textContent = 'Solve it';
+    scanReviewHelp.textContent = REVIEW_HELP_DEFAULT;
     renderNet();
     paintCube3D();
     validateNet();
@@ -2483,12 +2613,14 @@
 
   async function onSolve() {
     if (!validateNet()) return;
-    const str = buildFaceletString();
+    const facePerm = scanOrientationPerm();
+    const str = normalizeFacelets(buildFaceletString());
     // cubejs always returns a (non-empty) move sequence, even for a solved cube, so
     // catch the already-solved case from the scanned layout itself.
     if (str === SOLVED_FACELETS) {
       closeScanner();
       setScramble([], '');
+      if (facePerm) { faceColorPerm = facePerm; recolorStickers(); }
       showToast('That cube is already solved! \uD83C\uDF89');
       return;
     }
@@ -2499,7 +2631,7 @@
     ensureSolver();
     try {
       const solution = await solveFacelets(str);
-      applyScannedSolution(solution);
+      applyScannedSolution(solution, undefined, facePerm);
     } catch (err) {
       scanSolveBtn.disabled = false;
       scanSolveBtn.textContent = original;
@@ -2538,7 +2670,7 @@
     }
   }
 
-  function applyScannedSolution(solution, toastMsg) {
+  function applyScannedSolution(solution, toastMsg, facePerm) {
     closeScanner();
     // The solution takes scanned -> solved; its inverse takes solved -> scanned.
     // Feeding that inverse to setScramble reconstructs the scanned state on screen and
@@ -2546,6 +2678,9 @@
     const parsed = parseScramble(solution.trim());
     const scrambleMoves = parsed.moves.slice().reverse().map(inverse);
     setScramble(scrambleMoves);
+    // setScramble resets to the canonical palette; repaint into the scanned orientation
+    // so each face shows the color the cube was physically held with.
+    if (facePerm) { faceColorPerm = facePerm; recolorStickers(); }
     showToast(toastMsg || 'Cube scanned! Press <b>\u25B6 Play</b> to watch it solve.');
     nudgePlay();
   }
@@ -2602,10 +2737,19 @@
 
   function scanKeydown(e) { if (e.key === 'Escape') closeScanner(); }
 
-  function openScanner() {
-    scanModal.hidden = false;
+  // Open the calibrate -> capture -> review flow (the scanner's only method).
+  function chooseFaces() {
     scanModal.dataset.mode = 'calibrate';
     scanHeading.textContent = 'Calibrate colors';
+    calibStep = 0;
+    setScanMsg('', null);
+    updateCalibStep();
+    layoutGuide();
+  }
+
+  function openScanner() {
+    scanModal.hidden = false;
+    scanHeading.textContent = 'Scan your cube';
     scanStep = 0;
     calibStep = 0;
     netLetters = {};
@@ -2615,10 +2759,12 @@
     scanCalibCapture.disabled = true;
     scanTestBtn.disabled = false;
     scanTestBtn.textContent = SCAN_TEST_LABEL;
-    updateCalibStep();
-    layoutGuide();
-    ensureSolver();   // warm up the solver while the user calibrates + scans
+    scanSteps.innerHTML = '';
+    scanInstruction.textContent = '';
+    setScanMsg('', null);
+    ensureSolver();   // warm up the solver while the user scans
     startCamera();
+    chooseFaces();    // skip the method chooser: open straight into the face-by-face flow
     document.addEventListener('keydown', scanKeydown);
   }
 

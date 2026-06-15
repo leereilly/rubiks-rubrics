@@ -57,6 +57,26 @@ python3 -m http.server 8000
 [Three.js](https://threejs.org/) (WebGL) — `RoundedBoxGeometry`, `OrbitControls`,
 `RoomEnvironment`, and `UnrealBloomPass`, all loaded from a CDN via an import map.
 
+## Open source credits
+
+Rubik's Rubrics stands on the shoulders of two wonderful open source projects:
+
+- **[three.js](https://github.com/mrdoob/three.js)** (MIT) — the WebGL engine behind every
+  rendered frame: `RoundedBoxGeometry`, `OrbitControls`, `RoomEnvironment`, `EffectComposer`,
+  and `UnrealBloomPass`.
+- **[cubejs](https://github.com/ldez/cubejs)** (MIT) — Herbert Kociemba's two-phase solver,
+  used to solve cubes scanned from your webcam.
+
+Thank you to **every single person** who has contributed to them. Each sticker on the faux
+Rubik's cube below is the GitHub avatar of one of the **370 contributors** to those two
+projects — deduplicated, so nobody appears twice. The leftover stickers wear GitHub's
+contribution-graph gray. ✊
+
+<p align="center">
+  <img src="contributors-cube.webp" width="820"
+       alt="A faux Rubik's cube, unfolded into its six faces, whose stickers are the GitHub avatars of every contributor to three.js and cubejs">
+</p>
+
 ---
 
 Made with ♥ and [GitHub Copilot](https://github.com/features/copilot) and Claude Opus 4.8 · max :metal:
