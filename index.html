@@ -449,18 +449,8 @@
   /* ---- Webcam cube scanner ---- */
   .scan-cta { border-color: var(--accent); }
   .scan-cta svg { fill: var(--accent-bright); }
-  #scanCube { margin-bottom: 10px; flex-direction: column; gap: 2px; }
+  #scanCube { margin-bottom: 10px; }
   .scan-cta-main { display: inline-flex; align-items: center; gap: 8px; }
-  .scan-cta-note {
-    font-size: 9.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
-    color: var(--accent-bright); opacity: .92;
-  }
-  .scan-tag {
-    font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-    padding: 2.5px 7px; border-radius: 999px; line-height: 1; white-space: nowrap;
-    color: var(--accent-bright); background: rgba(46,160,67,.15);
-    border: 1px solid rgba(46,160,67,.45);
-  }
   .scan-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
 
   /* "Press play" toast */
@@ -978,7 +968,6 @@
         <svg viewBox="0 0 24 24"><path d="M9.4 4 8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.4-2H9.4zM12 8.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
         Scan a real cube
       </span>
-      <span class="scan-cta-note">Experimental · work in progress</span>
     </button>
 
     <button class="scramble-btn" id="scramble">
@@ -992,7 +981,6 @@
     <div class="scan-bar">
       <div class="scan-title">
         <h2 id="scanHeading">Scan your cube</h2>
-        <span class="scan-tag">Experimental</span>
       </div>
       <button class="scan-close" id="scanClose" aria-label="Close scanner">&times;</button>
     </div>
