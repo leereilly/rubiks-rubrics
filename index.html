@@ -445,6 +445,361 @@
   [data-theme="light"] .modal-card code { background: rgba(0,0,0,.07); }
   [data-theme="light"] #footer a:hover { color: #1f2328; }
   [data-theme="light"] .label .help .tip { color: #e6edf3; }
+
+  /* ---- Webcam cube scanner ---- */
+  .scan-cta { border-color: var(--accent); }
+  .scan-cta svg { fill: var(--accent-bright); }
+  #scanCube { margin-bottom: 10px; }
+  .scan-cta-main { display: inline-flex; align-items: center; gap: 8px; }
+  .scan-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+  /* "Press play" toast */
+  .toast {
+    position: fixed; top: 74px; left: 50%; z-index: 65;
+    transform: translateX(-50%) translateY(-8px);
+    max-width: min(440px, calc(100vw - 32px));
+    background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px;
+    padding: 11px 16px; font-size: 13px; color: var(--text); text-align: center;
+    backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 14px 40px rgba(0,0,0,.45); opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast b { color: var(--accent-bright); }
+
+  #playPause.pulse { animation: pp-pulse 1.1s ease-in-out infinite; }
+  @keyframes pp-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+    50% { box-shadow: 0 0 0 9px rgba(63,185,80,.3); }
+  }
+
+  /* Full-screen scanner overlay */
+  .scan-overlay {
+    position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column;
+    background: rgba(3,5,10,.93); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .scan-overlay[hidden] { display: none; }
+  [data-theme="light"] .scan-overlay { background: rgba(233,238,243,.95); }
+
+  .scan-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; gap: 12px; flex: 0 0 auto;
+  }
+  .scan-bar h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .scan-close {
+    width: 34px; height: 34px; border-radius: 10px; cursor: pointer; flex: 0 0 auto;
+    background: rgba(255,255,255,.08); border: 1px solid var(--panel-border); color: var(--text);
+    font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .scan-close:hover { background: rgba(255,255,255,.16); }
+  [data-theme="light"] .scan-close { background: rgba(0,0,0,.05); }
+
+  .scan-body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; overflow: auto; }
+
+  .scan-stage {
+    position: relative; width: min(100%, 680px); aspect-ratio: 4 / 3; max-height: 100%;
+    border-radius: 18px; overflow: hidden; background: #000;
+    border: 1px solid var(--panel-border); box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .scan-overlay[data-mode="review"] .scan-stage { display: none; }
+  #scanVideo { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; background: #000; }
+  .scan-grid {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    pointer-events: none;
+  }
+  .scan-grid .gc {
+    border: 2px solid rgba(255,255,255,.6); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4);
+    transition: background-color .12s linear;
+  }
+  .scan-overlay[data-mode="camera"] .scan-grid { pointer-events: auto; }
+  .scan-overlay[data-mode="camera"] .scan-grid .gc { cursor: pointer; }
+  .scan-grid .gc.pinned { box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 5px rgba(0,0,0,.6); }
+  .scan-cam-error {
+    position: absolute; inset: 0; display: none; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center; text-align: center; padding: 26px;
+    color: var(--text); font-size: 14px; line-height: 1.5; background: rgba(3,5,10,.72);
+  }
+  .scan-overlay[data-cam="error"] .scan-cam-error { display: flex; }
+
+  /* Color calibration: one large centered box, outlined in the target color and filled
+     live with the color we currently detect, so the user can match them before capturing. */
+  .scan-calib {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    border: 4px solid #fff; border-radius: 14px; display: none; pointer-events: none;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 0 6px 24px rgba(0,0,0,.4);
+    transition: background-color .12s linear, border-color .18s;
+  }
+  .scan-overlay[data-mode="calibrate"][data-cam="live"] .scan-calib { display: block; }
+  .scan-overlay[data-mode="calibrate"] .scan-grid,
+  .scan-overlay[data-mode="calibrate"] .scan-guide { display: none; }
+
+  /* Rotation guide: a little 3D cube that demonstrates how to turn the real cube
+     for the current capture step. Anchored in the stage corner, clear of the
+     centered alignment grid, and hidden once we leave the live camera. */
+  .scan-guide {
+    position: absolute; top: 12px; left: 12px; z-index: 3;
+    width: clamp(92px, 24%, 128px);
+    padding: 9px 9px 7px;
+    border-radius: 14px; transform-origin: top left;
+    background: rgba(3,5,10,.5); border: 1px solid rgba(255,255,255,.16);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: none; user-select: none;
+  }
+  [data-theme="light"] .scan-guide { background: rgba(255,255,255,.62); border-color: rgba(0,0,0,.14); }
+  .scan-overlay[data-cam="error"] .scan-guide,
+  .scan-overlay[data-cam="init"] .scan-guide { display: none; }
+  .sg-scene { width: 76px; height: 64px; perspective: 360px; display: flex; align-items: center; justify-content: center; }
+  /* Constant isometric "camera" so a turn always reads as a solid 3D object, never edge-on/flat. */
+  .sg-view { position: relative; width: 44px; height: 44px; transform-style: preserve-3d; transform: rotateX(-24deg) rotateY(-30deg); }
+  .sg-cube { position: absolute; inset: 0; width: 44px; height: 44px; transform-style: preserve-3d; }
+  .sg-face {
+    position: absolute; width: 44px; height: 44px; border-radius: 5px;
+    background-color: #5d6979;
+    background-image:
+      linear-gradient(135deg, rgba(255,255,255,.30), rgba(255,255,255,0) 46%),
+      linear-gradient(rgba(0,0,0,.45) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, rgba(0,0,0,.45) 1.5px, transparent 1.5px);
+    background-size: cover, 33.34% 33.34%, 33.34% 33.34%;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.6), inset 0 0 0 3px rgba(255,255,255,.08);
+  }
+  /* Faces colored with the app palette so a turn reads as an obvious 3D rotation. */
+  .sg-front  { transform: translateZ(22px);                 background-color: #00a44a; }
+  .sg-back   { transform: rotateY(180deg) translateZ(22px); background-color: #1d63ff; }
+  .sg-right  { transform: rotateY(90deg)  translateZ(22px); background-color: #d6261f; }
+  .sg-left   { transform: rotateY(-90deg) translateZ(22px); background-color: #ff7a18; }
+  .sg-top    { transform: rotateX(90deg)  translateZ(22px); background-color: #f7f7f7; }
+  .sg-bottom { transform: rotateX(-90deg) translateZ(22px); background-color: #ffd400; }
+  /* Faint outline cube pinned at the start orientation: the cube's "previous position".
+     Slightly enlarged so it reads as an outline around the solid and never z-fights it. */
+  .sg-ghost { transform: scale3d(1.06, 1.06, 1.06); }
+  .sg-ghost .sg-face { background-color: transparent; background-image: none; box-shadow: inset 0 0 0 1.6px rgba(255,255,255,.34); }
+  [data-theme="light"] .sg-ghost .sg-face { box-shadow: inset 0 0 0 1.6px rgba(0,0,0,.32); }
+  .scan-guide[data-gesture="present"] .sg-ghost { display: none; }
+  .sg-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--text); text-align: center; line-height: 1.15; opacity: .92;
+  }
+  /* Directional arrow that mirrors the guide cube's motion: spin -> left, tip the top
+     in -> down, tip the bottom in -> up. The wrapper sets the heading; the inner span
+     slides toward the tip so the rotation direction reads at a glance. */
+  .sg-arrow { height: 20px; display: flex; align-items: center; justify-content: center; color: var(--accent-bright); }
+  .sg-arrow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+  .sg-arrow-i { display: inline-flex; animation: sg-arrow-slide 1.3s ease-in-out infinite; }
+  .scan-guide[data-gesture="present"] .sg-arrow { visibility: hidden; }
+  .scan-guide[data-gesture="spin"]     .sg-arrow { transform: rotate(0deg); }
+  .scan-guide[data-gesture="tip-fwd"]  .sg-arrow { transform: rotate(-90deg); }
+  .scan-guide[data-gesture="tip-back"] .sg-arrow { transform: rotate(90deg); }
+  @keyframes sg-arrow-slide { 0%, 100% { transform: translateX(4px); } 50% { transform: translateX(-4px); } }
+  /* Only the solid cube animates; the ghost stays pinned at the start orientation
+     as a fixed outline (the cube's "previous position"), so every turn reads against
+     a stationary reference. The constant tilt on .sg-view keeps each pose looking like
+     a solid 3D cube throughout the turn, never collapsing edge-on. */
+  .scan-guide[data-gesture="present"]  .sg-solid { animation: sg-present 4.8s ease-in-out infinite; }
+  .scan-guide[data-gesture="spin"]     .sg-solid { animation: sg-spin    3.4s ease-in-out infinite; }
+  .scan-guide[data-gesture="tip-fwd"]  .sg-solid { animation: sg-tipfwd  3.4s ease-in-out infinite; }
+  .scan-guide[data-gesture="tip-back"] .sg-solid { animation: sg-tipback 3.4s ease-in-out infinite; }
+  /* Gentle idle sway so the held front face still reads as a solid 3D cube. */
+  @keyframes sg-present {
+    0%   { transform: rotateY(-15deg); }
+    50%  { transform: rotateY(15deg); }
+    100% { transform: rotateY(-15deg); }
+  }
+  /* A single quarter-turn from the start orientation (where the ghost sits) followed by
+     a hold on the result, so both the direction and the destination register. The loop
+     wraps instantly back to the start, so the only motion shown is the correct direction.
+     No opacity is animated here: fading the solid would force the browser to flatten its
+     preserve-3d layer and the cube would collapse edge-on mid-turn. */
+  @keyframes sg-spin {
+    0%, 12%   { transform: rotateY(0deg); }
+    55%, 100% { transform: rotateY(-90deg); }
+  }
+  /* Tip the top toward the camera (rotate forward about the horizontal axis). */
+  @keyframes sg-tipfwd {
+    0%, 12%   { transform: rotateX(0deg); }
+    55%, 100% { transform: rotateX(-90deg); }
+  }
+  /* Tip the bottom toward the camera (rotate backward about the horizontal axis). */
+  @keyframes sg-tipback {
+    0%, 12%   { transform: rotateX(0deg); }
+    55%, 100% { transform: rotateX(90deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scan-guide .sg-cube { animation: none !important; }
+    /* No motion: pair the static ghost (start) with the solid held part-way through the
+       turn, so the rotation direction still reads from the offset between the two. */
+    .scan-guide[data-gesture="present"]  .sg-solid { transform: rotateY(0deg); }
+    .scan-guide[data-gesture="spin"]     .sg-solid { transform: rotateY(-62deg); }
+    .scan-guide[data-gesture="tip-fwd"]  .sg-solid { transform: rotateX(-62deg); }
+    .scan-guide[data-gesture="tip-back"] .sg-solid { transform: rotateX(62deg); }
+    .sg-arrow-i { animation: none !important; }
+  }
+  @media (max-width: 640px) { .scan-guide { transform: scale(.82); } }
+
+  /* Editable net (review mode) */
+  .scan-review { display: none; flex-direction: column; gap: 16px; align-items: center; width: 100%; padding: 8px 0 4px; }
+  .scan-overlay[data-mode="review"] .scan-review { display: flex; }
+  .scan-review-help { margin: 0; font-size: 12.5px; color: var(--text-dim); text-align: center; max-width: 420px; }
+  /* Six faces laid out as an unfolded cross (U on top, L/F/R/B across the middle,
+     D on the bottom) so the whole cube can be verified at a glance. */
+  .scan-net { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: min(100%, 460px); }
+  .net-face {
+    display: flex; flex-direction: column; gap: 5px; padding: 7px; border-radius: 9px;
+    background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--panel-border);
+  }
+  [data-theme="light"] .net-face { background: rgba(0,0,0,.035); }
+  .net-face-label {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+    color: var(--text-dim); text-align: center; line-height: 1;
+  }
+  .net-face-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .net-cell {
+    aspect-ratio: 1; border: none; border-radius: 4px; padding: 0; cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); transition: transform .08s;
+  }
+  .net-cell:hover { transform: scale(1.1); }
+  .net-cell.center { box-shadow: inset 0 0 0 2px rgba(0,0,0,.55); }
+
+  /* The net (flat, editable) and a spinning 3D cube (solid, true-to-life) sit side by
+     side on wide screens and stack on narrow ones, so the scan can be checked both ways. */
+  .scan-review-views { display: flex; flex-wrap: wrap; gap: 26px; align-items: center; justify-content: center; width: 100%; }
+  /* Spinning 3D cube. Faces reuse the .sg-cube transforms (translateZ / rotateY±90,180 /
+     rotateX±90, no rotateZ) — exactly the net-unfolding rotations, so cubejs's row-major
+     facelet index lands on each face's 3x3 grid one-to-one (see paintCube3D). */
+  .scan-cube3d {
+    --cs: 96px;
+    flex: 0 0 auto; width: 172px; height: 172px;
+    display: flex; align-items: center; justify-content: center;
+    perspective: 680px; perspective-origin: 50% 44%;
+  }
+  .rc-view { position: relative; width: var(--cs); height: var(--cs); transform-style: preserve-3d; transform: rotateX(-22deg); }
+  .rc-cube { position: absolute; inset: 0; transform-style: preserve-3d; animation: rc-spin 15s linear infinite; }
+  .scan-cube3d:hover .rc-cube { animation-play-state: paused; }
+  .rc-face {
+    position: absolute; width: var(--cs); height: var(--cs); border-radius: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 3px; padding: 3px; background: #0d1117;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.7);
+    backface-visibility: hidden;
+  }
+  .rc-sticker { border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.32), inset 0 1px 2px rgba(255,255,255,.16); backface-visibility: hidden; }
+  .rc-front  { transform: translateZ(calc(var(--cs) / 2)); }
+  .rc-back   { transform: rotateY(180deg) translateZ(calc(var(--cs) / 2)); }
+  .rc-right  { transform: rotateY(90deg)  translateZ(calc(var(--cs) / 2)); }
+  .rc-left   { transform: rotateY(-90deg) translateZ(calc(var(--cs) / 2)); }
+  .rc-up     { transform: rotateX(90deg)  translateZ(calc(var(--cs) / 2)); }
+  .rc-down   { transform: rotateX(-90deg) translateZ(calc(var(--cs) / 2)); }
+  @keyframes rc-spin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+  /* No motion: hold a static 3/4 view so it still reads as a solid 3D cube. */
+  @media (prefers-reduced-motion: reduce) { .rc-cube { animation: none; transform: rotateY(-34deg); } }
+  @media (max-width: 640px) { .scan-cube3d { --cs: 82px; width: 150px; height: 150px; } }
+
+  /* "How it works" explainer (review mode): a small, always-valid solved cube that folds
+     up from — and unfolds back into — the cross-shaped map, so the link between the 3D
+     cube and the flat net below reads at a glance. Faces use the same net-unfolding
+     rotations as the .rc-cube; the four side faces (and B, hinged off R) fold about the
+     edge they share with Front (transform-origin on the seam). Purely illustrative -> the
+     cube itself is aria-hidden and only the caption is announced. */
+  .scan-explain {
+    margin: 0; display: flex; align-items: center; justify-content: center;
+    gap: 4px 18px; flex-wrap: wrap; max-width: 442px;
+    padding: 8px 16px; border-radius: 12px;
+    background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--panel-border);
+  }
+  [data-theme="light"] .scan-explain { background: rgba(0,0,0,.03); }
+  .scan-explain-cap { margin: 0; font-size: 11.5px; line-height: 1.42; color: var(--text-dim); max-width: 230px; text-align: left; }
+  .se-stage { flex: 0 0 auto; width: 150px; height: 108px; display: flex; align-items: center; justify-content: center; perspective: 380px; perspective-origin: 50% 50%; }
+  .se-cube { position: relative; width: 30px; height: 30px; transform-style: preserve-3d; animation: se-orient 9s ease-in-out infinite; }
+  /* Each face is a 3x3-ruled square in its solved color, so the assembled cube is valid. */
+  .se-face {
+    position: absolute; width: 30px; height: 30px; box-sizing: border-box;
+    transform-style: preserve-3d; border-radius: 5px; background-color: var(--c);
+    background-image:
+      linear-gradient(rgba(0,0,0,.38) 1.4px, transparent 1.4px),
+      linear-gradient(90deg, rgba(0,0,0,.38) 1.4px, transparent 1.4px);
+    background-size: 33.34% 33.34%, 33.34% 33.34%;
+    box-shadow: inset 0 0 0 1.4px rgba(0,0,0,.5);
+    backface-visibility: hidden;
+  }
+  /* Laid out as the unfolded cross (U top, L/F/R/B across, D bottom); B hinges off R. */
+  .se-f { inset: 0; --c: #00a44a; }
+  .se-u { left: 0; bottom: 100%; transform-origin: 50% 100%; --c: #f7f7f7; animation: se-fold-u 9s ease-in-out infinite; }
+  .se-d { left: 0; top: 100%;    transform-origin: 50% 0%;   --c: #ffd400; animation: se-fold-d 9s ease-in-out infinite; }
+  .se-l { top: 0; right: 100%;   transform-origin: 100% 50%; --c: #ff7a18; animation: se-fold-l 9s ease-in-out infinite; }
+  .se-r { top: 0; left: 100%;    transform-origin: 0% 50%;   --c: #d6261f; animation: se-fold-r 9s ease-in-out infinite; }
+  .se-b { top: 0; left: 100%;    transform-origin: 0% 50%;   --c: #1d63ff; animation: se-fold-b 9s ease-in-out infinite; }
+  /* Hold flat (cross) -> fold into a solid cube -> hold -> unfold, on a loop. No opacity
+     is animated, which would flatten the preserve-3d layer mid-fold in Chrome. */
+  @keyframes se-orient {
+    0%, 14%   { transform: rotateX(0deg) rotateY(0deg) translateZ(0); }
+    38%, 62%  { transform: rotateX(22deg) rotateY(-30deg) translateZ(15px); }
+    86%, 100% { transform: rotateX(0deg) rotateY(0deg) translateZ(0); }
+  }
+  @keyframes se-fold-u { 0%,14%{transform:rotateX(0)} 38%,62%{transform:rotateX(-90deg)} 86%,100%{transform:rotateX(0)} }
+  @keyframes se-fold-d { 0%,14%{transform:rotateX(0)} 38%,62%{transform:rotateX(90deg)}  86%,100%{transform:rotateX(0)} }
+  @keyframes se-fold-l { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(-90deg)} 86%,100%{transform:rotateY(0)} }
+  @keyframes se-fold-r { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(90deg)}  86%,100%{transform:rotateY(0)} }
+  @keyframes se-fold-b { 0%,14%{transform:rotateY(0)} 38%,62%{transform:rotateY(90deg)}  86%,100%{transform:rotateY(0)} }
+  /* No motion: hold the assembled solid cube (still reads as a valid 3D cube). */
+  @media (prefers-reduced-motion: reduce) {
+    .se-cube { animation: none; transform: rotateX(22deg) rotateY(-30deg) translateZ(15px); }
+    .se-face { animation: none; }
+    .se-u { transform: rotateX(-90deg); }
+    .se-d { transform: rotateX(90deg); }
+    .se-l { transform: rotateY(-90deg); }
+    .se-r { transform: rotateY(90deg); }
+    .se-b { transform: rotateY(90deg); }
+  }
+  @media (max-width: 640px) { .scan-explain-cap { text-align: center; max-width: 300px; } }
+
+  .scan-foot { flex: 0 0 auto; padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 11px; align-items: center; }
+  .scan-steps { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+  .scan-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--panel-border); color: var(--text-dim);
+  }
+  [data-theme="light"] .scan-chip { background: rgba(0,0,0,.04); }
+  .scan-chip.active { color: var(--text); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(46,160,67,.28); }
+  .scan-chip.done { color: var(--text); }
+  .scan-chip .sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); background: transparent; }
+  .scan-instruction { margin: 0; max-width: 540px; text-align: center; font-size: 13.5px; line-height: 1.5; color: var(--text); min-height: 38px; }
+  .scan-instruction b { color: var(--accent-bright); }
+  .scan-msg { min-height: 16px; margin: 0; font-size: 12.5px; line-height: 1.4; text-align: center; }
+  .scan-msg.ok { color: var(--accent-bright); }
+  .scan-msg.err { color: #ff7b72; }
+  /* Persistent reassurance shown only while actively reading colors (live capture +
+     calibration): the auto-detected colors never have to be perfect because every
+     sticker is editable on the review screen before solving. */
+  .scan-reassure { display: none; margin: 0; max-width: 540px; text-align: center; font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+  .scan-overlay[data-mode="camera"] .scan-reassure,
+  .scan-overlay[data-mode="calibrate"] .scan-reassure { display: block; }
+  .scan-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .scan-overlay[data-mode="camera"] #scanReviewActions { display: none; }
+  .scan-overlay[data-mode="review"] #scanCamActions { display: none; }
+  .scan-overlay[data-mode="calibrate"] #scanCamActions,
+  .scan-overlay[data-mode="calibrate"] #scanReviewActions,
+  .scan-overlay[data-mode="camera"] #scanCalibActions,
+  .scan-overlay[data-mode="review"] #scanCalibActions { display: none; }
+  .scan-btn {
+    height: 44px; padding: 0 22px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--panel-border); background: rgba(255,255,255,.06); color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px; transition: background .15s, transform .08s, opacity .15s;
+  }
+  .scan-btn:hover { background: rgba(255,255,255,.14); }
+  .scan-btn:active { transform: scale(.97); }
+  [data-theme="light"] .scan-btn { background: rgba(0,0,0,.05); }
+  [data-theme="light"] .scan-btn:hover { background: rgba(0,0,0,.09); }
+  .scan-btn.primary { background: var(--accent); border-color: var(--accent-bright); color: #fff; }
+  .scan-btn.primary:hover { background: var(--accent-bright); }
+  .scan-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .scan-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  /* Secondary "try a random cube" shortcut — only offered on the calibrate entry screen. */
+  .scan-test { margin-top: 2px; font-weight: 500; color: var(--text-dim); border-style: dashed; }
+  .scan-test:hover { color: var(--text); }
+  .scan-overlay:not([data-mode="calibrate"]) .scan-test { display: none; }
 </style>
 </head>
 <body>
@@ -509,8 +864,8 @@
         <tr><td>Wide</td><td><code>r u f l d b</code><br>or <code>Rw Uw</code>&hellip;</td><td>The face plus its adjacent slice</td></tr>
         <tr><td>Rotations</td><td><code>x</code> <code>y</code> <code>z</code></td><td>The whole cube (x like R, y like U, z like F)</td></tr>
       </table>
-      <p>Because every quarter turn has an inverse (<code>R</code> undoes <code>R'</code>), a <b>Scramble</b> applied to a solved cube can always be undone: the <b>Solution</b> is that same sequence reversed with each move inverted.</p>
-      <p class="sub">Tip: paste any algorithm into the Custom scramble box to replay it. Half turns are animated as two quarter turns.</p>
+      <p>A random <b>Scramble</b> is handed to a real two-phase solver (Herbert Kociemba&rsquo;s algorithm), so the <b>Solution</b> you watch is a genuine, near-optimal solve &mdash; not the scramble played in reverse.</p>
+      <p class="sub">Tip: paste any algorithm into the Custom scramble box to watch it rewind move-by-move. Half turns are animated as two quarter turns.</p>
       <p class="src">Authoritative reference: <a href="https://www.worldcubeassociation.org/regulations/#article-12-notation" target="_blank" rel="noopener noreferrer">WCA Regulations, Article 12: Notation &nearr;</a></p>
     </div>
   </div>
@@ -608,11 +963,106 @@
       <div class="cs-msg" id="customMsg" aria-live="polite"></div>
     </div>
 
+    <button class="scramble-btn scan-cta" id="scanCube">
+      <span class="scan-cta-main">
+        <svg viewBox="0 0 24 24"><path d="M9.4 4 8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.4-2H9.4zM12 8.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
+        Scan a real cube
+      </span>
+    </button>
+
     <button class="scramble-btn" id="scramble">
       <svg viewBox="0 0 24 24"><path d="M12 6V2L7 7l5 5V8c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg>
       New scramble
     </button>
   </div>
+
+  <!-- Webcam cube scanner -->
+  <div id="scanModal" class="scan-overlay" hidden data-mode="calibrate" data-cam="init" role="dialog" aria-modal="true" aria-label="Scan a cube with your webcam">
+    <div class="scan-bar">
+      <div class="scan-title">
+        <h2 id="scanHeading">Scan your cube</h2>
+      </div>
+      <button class="scan-close" id="scanClose" aria-label="Close scanner">&times;</button>
+    </div>
+    <div class="scan-body">
+      <div class="scan-stage" id="scanStage">
+        <video id="scanVideo" playsinline autoplay muted></video>
+        <div class="scan-grid" id="scanGrid" aria-hidden="true"></div>
+        <div class="scan-guide" id="scanGuide" data-gesture="present" aria-hidden="true">
+          <div class="sg-scene">
+            <div class="sg-view">
+              <div class="sg-cube sg-ghost">
+                <div class="sg-face sg-front"></div>
+                <div class="sg-face sg-back"></div>
+                <div class="sg-face sg-right"></div>
+                <div class="sg-face sg-left"></div>
+                <div class="sg-face sg-top"></div>
+                <div class="sg-face sg-bottom"></div>
+              </div>
+              <div class="sg-cube sg-solid">
+                <div class="sg-face sg-front"></div>
+                <div class="sg-face sg-back"></div>
+                <div class="sg-face sg-right"></div>
+                <div class="sg-face sg-left"></div>
+                <div class="sg-face sg-top"></div>
+                <div class="sg-face sg-bottom"></div>
+              </div>
+            </div>
+          </div>
+          <div class="sg-arrow"><span class="sg-arrow-i"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span></div>
+          <span class="sg-label" id="scanGuideLabel">Hold steady</span>
+        </div>
+        <div class="scan-calib" id="scanCalib" aria-hidden="true"></div>
+        <div class="scan-cam-error" id="scanCamError">
+          <span id="scanCamErrorMsg">We couldn't access your camera.</span>
+          <button class="scan-btn" id="scanCamRetry">Try again</button>
+        </div>
+      </div>
+      <div class="scan-review" id="scanReview">
+        <p class="scan-review-help" id="scanReviewHelp">Your cube, in 3D and unfolded. Spin the cube (hover to pause) to compare it with the real one, then tap any sticker — centers included — to cycle its color until they match.</p>
+        <figure class="scan-explain">
+          <div class="se-stage" aria-hidden="true">
+            <div class="se-cube">
+              <div class="se-face se-f"></div>
+              <div class="se-face se-u"></div>
+              <div class="se-face se-d"></div>
+              <div class="se-face se-l"></div>
+              <div class="se-face se-r">
+                <div class="se-face se-b"></div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="scan-explain-cap">Every cube unfolds into this flat map — each of its 6 sides becomes one square. That's the layout you're checking below.</figcaption>
+        </figure>
+        <div class="scan-review-views">
+          <div class="scan-cube3d" id="scanCube3d" aria-hidden="true"></div>
+          <div class="scan-net" id="scanNet"></div>
+        </div>
+      </div>
+    </div>
+    <div class="scan-foot">
+      <div class="scan-steps" id="scanSteps"></div>
+      <p class="scan-instruction" id="scanInstruction"></p>
+      <p class="scan-reassure">&#128161; Don't worry about getting a perfect color match &mdash; you can always tweak any sticker by hand before we unscramble it.</p>
+      <p class="scan-msg" id="scanMsg" aria-live="polite"></p>
+      <div class="scan-actions" id="scanCalibActions">
+        <button class="scan-btn" id="scanCalibBack">Back</button>
+        <button class="scan-btn" id="scanCalibSkip">Skip</button>
+        <button class="scan-btn primary" id="scanCalibCapture" disabled>Capture color</button>
+      </div>
+      <div class="scan-actions" id="scanCamActions">
+        <button class="scan-btn" id="scanBack">Back</button>
+        <button class="scan-btn primary" id="scanCapture" disabled>Capture face</button>
+      </div>
+      <div class="scan-actions" id="scanReviewActions">
+        <button class="scan-btn" id="scanRestart">Rescan</button>
+        <button class="scan-btn primary" id="scanSolve">Solve it</button>
+      </div>
+      <button class="scan-btn scan-test" id="scanTest" title="Generate a random, valid cube and watch it solve — no physical cube needed">&#127922; No cube handy? Solve a random one</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="importmap">
   {
@@ -655,6 +1105,10 @@
   const GITHUB  = ['#39d353', '#9be9a8', '#ebedf0', '#26a641', '#006d32', '#0e4429'];
 
   let palette = CLASSIC;
+  // Identity by default. A webcam scan sets this to a whole-cube color rotation so the
+  // solved render shows each color on the face the cube was physically held with, instead
+  // of snapping every solve to canonical white-up / green-front.
+  let faceColorPerm = [0, 1, 2, 3, 4, 5];
 
   // ---------------------------------------------------------------------------
   // Renderer / scene / camera
@@ -738,10 +1192,18 @@
 
   function makeStickerMesh(faceId) {
     const mat = new THREE.MeshPhysicalMaterial({
-      color: palette[faceId], roughness: 0.32, metalness: 0.0,
+      color: palette[faceColorPerm[faceId]], roughness: 0.32, metalness: 0.0,
       clearcoat: 1.0, clearcoatRoughness: 0.18, envMapIntensity: 1.15,
     });
     return new THREE.Mesh(stickerGeo, mat);
+  }
+
+  // Repaint every sticker through the active palette and face-color rotation. Used by the
+  // GitHub-contributions toggle and by the scanner to apply a scanned cube's orientation.
+  function recolorStickers() {
+    for (const c of cubies)
+      for (const s of c.stickers)
+        s.mesh.material.color.set(palette[faceColorPerm[s.faceId]]);
   }
 
   function orientSticker(mesh, axis, sign) {
@@ -887,6 +1349,7 @@
   let solveMoves = [];    // moves that take scrambled → solved
   let currentIndex = 0;   // # of solve moves applied (0 = scrambled, N = solved)
   let activeSolve = -1;   // solve move currently being typed/animated (-1 = none)
+  let scrambleToken = 0;  // bumped per New scramble; lets a late solver reply detect it's stale
 
   function randomScramble(len = 25) {
     const faces = [['x', 1], ['x', -1], ['y', 1], ['y', -1], ['z', 1], ['z', -1]];
@@ -902,13 +1365,22 @@
     return seq;
   }
 
-  function setScramble(moves, label) {
+  function setScramble(moves, label, solveOverride) {
     stopPlaying();
+    abortAnimation();
     resetToSolved();
+    // Any fresh scramble (random, custom, or rewound) renders in the canonical orientation;
+    // the scanner re-applies its own face-color rotation after calling setScramble.
+    faceColorPerm = [0, 1, 2, 3, 4, 5];
+    recolorStickers();
     scramble = moves;
     scrambleLabel = label != null ? label : moves.map(moveToNotation).join(' ');
     for (const m of scramble) applyMoveInstant(m);
-    solveMoves = scramble.slice().reverse().map(inverse);
+    // Default solve = the scramble rewound; callers (the New scramble button) can pass
+    // a real solver's solution so a solve isn't merely the scramble played backwards.
+    solveMoves = (solveOverride && solveOverride.length)
+      ? solveOverride
+      : scramble.slice().reverse().map(inverse);
     currentIndex = 0;
     activeSolve = -1;
     renderFromModel();
@@ -916,8 +1388,37 @@
     updateUI();
   }
 
+  // Build an algorithm string cube.js's parser accepts (ASCII apostrophe, not \u2032).
+  function movesToAlg(moves) {
+    return moves.map(m => moveToNotation(m).replace('\u2032', "'")).join(' ');
+  }
+
+  // Swap the reverse-replay fallback for cube.js's real two-phase (Kociemba) solution,
+  // so watching a random scramble solve runs the actual algorithm instead of rewinding
+  // the scramble. Stays silent on the fallback when the solver can't run (e.g. offline),
+  // or if the scramble/playhead moved on while we waited for the worker.
+  async function upgradeSolveWithSolver(moves, token) {
+    ensureSolver();
+    try {
+      const solution = await solveScramble(movesToAlg(moves));
+      if (token !== scrambleToken || scramble !== moves || currentIndex !== 0 || animating) return false;
+      const parsed = parseScramble(solution.trim());
+      if (!parsed.moves.length) return false;
+      solveMoves = parsed.moves;
+      updateUI();
+      return true;
+    } catch (_) {
+      return false;   // keep the reverse-replay fallback already in solveMoves
+    }
+  }
+
+  // Scramble with random face turns, shown instantly; the genuine solver solution
+  // streams in a beat later. Resolves once that's in (or the fallback is kept).
   function newScramble() {
-    setScramble(randomScramble(25));
+    const moves = randomScramble(25);
+    const token = ++scrambleToken;
+    setScramble(moves);
+    return upgradeSolveWithSolver(moves, token);
   }
 
   // ---------------------------------------------------------------------------
@@ -927,7 +1428,26 @@
   let playing = false;
   let pendingScrub = null;
   let turnDuration = 420;            // ms per quarter turn
+  let animRAF = null;                // handle for the in-flight turn, so it can be aborted
+  let animPivot = null;
+  let animAffected = null;
   const easeInOut = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+  // Abort a turn that's mid-flight without committing it: reattach its cubies to the
+  // cube root (so renderFromModel can position them) and drop the pivot. Used when the
+  // timeline is rebuilt out from under a running animation (e.g. a fresh setScramble).
+  function abortAnimation() {
+    if (animRAF !== null) { cancelAnimationFrame(animRAF); animRAF = null; }
+    if (animPivot) {
+      animAffected.forEach(c => cubeRoot.attach(c.obj));
+      cubeRoot.remove(animPivot);
+      animPivot = null;
+      animAffected = null;
+    }
+    animating = false;
+    activeSolve = -1;
+    pendingScrub = null;
+  }
 
   function animateMove(move, dispBase, dispDir, onDone) {
     animating = true;
@@ -935,6 +1455,8 @@
     cubeRoot.add(pivot);
     const affected = affectedCubies(move);
     affected.forEach(c => pivot.attach(c.obj));
+    animPivot = pivot;
+    animAffected = affected;
     const total = move.dir * HALF;
     const axisVec = AXES[move.axis];
     const start = performance.now();
@@ -945,17 +1467,20 @@
       pivot.quaternion.setFromAxisAngle(axisVec, total * e);
       timeline.value = dispBase + dispDir * e;
       if (t < 1) {
-        requestAnimationFrame(frame);
+        animRAF = requestAnimationFrame(frame);
       } else {
         affected.forEach(c => cubeRoot.attach(c.obj));
         cubeRoot.remove(pivot);
+        animRAF = null;
+        animPivot = null;
+        animAffected = null;
         applyMoveInstant(move);
         renderFromModel();
         animating = false;
         onDone && onDone();
       }
     }
-    requestAnimationFrame(frame);
+    animRAF = requestAnimationFrame(frame);
   }
 
   function stepForward() {
@@ -1033,7 +1558,7 @@
   // Reveals the solution one move at a time as it animates: tokens up to the
   // current index are kept, plus the move currently being "typed" with a caret.
   function updateNotation() {
-    const shown = Math.max(currentIndex, activeSolve + 1);
+    const shown = Math.min(solveMoves.length, Math.max(currentIndex, activeSolve + 1));
     const parts = [];
     for (let i = 0; i < shown; i++) {
       const cls = i === activeSolve ? 'nt-move active' : 'nt-move nt-done';
@@ -1151,9 +1676,7 @@
 
   document.getElementById('ghToggle').addEventListener('change', (e) => {
     palette = e.target.checked ? GITHUB : CLASSIC;
-    for (const c of cubies)
-      for (const s of c.stickers)
-        s.mesh.material.color.set(palette[s.faceId]);
+    recolorStickers();
   });
 
   document.getElementById('rotToggle').addEventListener('change', (e) => {
@@ -1319,6 +1842,959 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Webcam cube scanner — capture 6 faces, detect colors, solve with cubejs
+  // ---------------------------------------------------------------------------
+  // A physical cube can be in any state, so (unlike the rest of the app) this
+  // needs a real solver. We load cube.js + solve.js — Herbert Kociemba's two-phase
+  // algorithm, via ldez/cubejs (MIT) — into a Blob web worker so its one-time
+  // precalc never blocks the 3D scene. The worker takes a 54-char facelet string in
+  // cubejs URFDLB order and returns a solution in standard notation; the existing
+  // parseScramble + inverse machinery turns that straight into a replayable solve.
+  const CUBEJS_URLS = [
+    'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/cube.js',
+    'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/solve.js',
+  ];
+
+  let solverWorker = null;
+  let solverState = 'none';           // none | loading | ready | error
+  let solveSeq = 0;
+  const solveJobs = new Map();
+  const solverReadyWaiters = [];
+
+  async function ensureSolver() {
+    if (solverState === 'ready' || solverState === 'loading') return;
+    solverState = 'loading';
+    try {
+      const [cubeSrc, solveSrc] = await Promise.all(
+        CUBEJS_URLS.map(u => fetch(u).then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        }))
+      );
+      // Inline the library into the worker so we never rely on cross-origin
+      // importScripts. cube.js attaches to self.Cube; solve.js extends it.
+      const glue = cubeSrc + '\n' + solveSrc + '\n' + `
+        var Cube = self.Cube;
+        Cube.initSolver();
+        // A facelet string can have 9 of every color yet still be impossible to
+        // build (one twisted corner, one flipped edge, or two swapped pieces).
+        // cubejs' two-phase search never terminates on those, so screen the input
+        // through the three classic solvability invariants before ever solving.
+        function isPerm(a, n) {
+          if (a.length !== n) return false;
+          var seen = {};
+          for (var i = 0; i < n; i++) { var x = a[i]; if (x < 0 || x >= n || seen[x]) return false; seen[x] = true; }
+          return true;
+        }
+        function permParity(a) {
+          var v = a.slice(), p = 0;
+          for (var i = 0; i < v.length; i++) { while (v[i] !== i) { var j = v[i], t = v[i]; v[i] = v[j]; v[j] = t; p ^= 1; } }
+          return p;
+        }
+        function unsolvableReason(c) {
+          if (!isPerm(c.cp, 8) || !isPerm(c.ep, 12)) return 'Some stickers form impossible pieces.';
+          var co = 0, eo = 0, i;
+          for (i = 0; i < c.co.length; i++) co += c.co[i];
+          if (co % 3 !== 0) return 'A corner looks twisted.';
+          for (i = 0; i < c.eo.length; i++) eo += c.eo[i];
+          if (eo % 2 !== 0) return 'An edge looks flipped.';
+          if (permParity(c.cp) !== permParity(c.ep)) return 'Two pieces look swapped.';
+          return null;
+        }
+        self.postMessage({ type: 'ready' });
+        self.onmessage = function (e) {
+          var d = e.data;
+          if (!d) return;
+          if (d.type === 'random') {
+            // Cube.random() builds a uniformly random *valid* state — permutation
+            // and orientation parity are enforced — so it always solves. Reuse the
+            // 'solved' reply so it flows through the same job plumbing as a scan.
+            try { self.postMessage({ type: 'solved', id: d.id, solution: Cube.random().solve() }); }
+            catch (err) { self.postMessage({ type: 'solveError', id: d.id, error: String((err && err.message) || err) }); }
+            return;
+          }
+          if (d.type === 'scramble') {
+            // Apply a face-turn scramble to a solved cube and return cube.js's
+            // two-phase (Kociemba) solution: a real solve, not the scramble reversed.
+            try { var sc = new Cube(); sc.move(d.alg); self.postMessage({ type: 'solved', id: d.id, solution: sc.solve() }); }
+            catch (err) { self.postMessage({ type: 'solveError', id: d.id, error: String((err && err.message) || err) }); }
+            return;
+          }
+          if (d.type !== 'solve') return;
+          try {
+            var cube = Cube.fromString(d.facelets);
+            var reason = unsolvableReason(cube);
+            if (reason) { self.postMessage({ type: 'solveError', id: d.id, error: reason, unsolvable: true }); return; }
+            var solution = cube.solve();
+            self.postMessage({ type: 'solved', id: d.id, solution: solution });
+          } catch (err) {
+            self.postMessage({ type: 'solveError', id: d.id, error: String((err && err.message) || err) });
+          }
+        };
+      `;
+      const url = URL.createObjectURL(new Blob([glue], { type: 'text/javascript' }));
+      solverWorker = new Worker(url);
+      solverWorker.onmessage = (e) => {
+        const d = e.data;
+        if (d.type === 'ready') {
+          solverState = 'ready';
+          solverReadyWaiters.splice(0).forEach(fn => fn());
+        } else if (d.type === 'solved') {
+          const job = solveJobs.get(d.id);
+          if (job) { clearTimeout(job.timer); solveJobs.delete(d.id); job.resolve(d.solution); }
+        } else if (d.type === 'solveError') {
+          const job = solveJobs.get(d.id);
+          if (job) {
+            clearTimeout(job.timer);
+            solveJobs.delete(d.id);
+            const err = new Error(d.error);
+            if (d.unsolvable) err.unsolvable = true;
+            job.reject(err);
+          }
+        }
+      };
+      solverWorker.onerror = () => {
+        solverState = 'error';
+        solverReadyWaiters.splice(0);
+        solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error('Solver failed to load')); });
+        solveJobs.clear();
+      };
+    } catch (err) {
+      solverState = 'error';
+      solverReadyWaiters.splice(0);
+      solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error('Solver unavailable')); });
+      solveJobs.clear();
+    }
+  }
+
+  // Watchdog: even with the up-front solvability screen, never let a solve hang the
+  // UI. A genuinely solvable cube returns in well under a second, so if the worker
+  // goes silent past this budget we tear it down; the next attempt rebuilds it.
+  const SOLVE_TIMEOUT_MS = 12000;
+  function resetSolver(reason) {
+    if (solverWorker) { try { solverWorker.terminate(); } catch (_) {} }
+    solverWorker = null;
+    solverState = 'none';
+    solverReadyWaiters.splice(0);
+    solveJobs.forEach(job => { clearTimeout(job.timer); job.reject(new Error(reason)); });
+    solveJobs.clear();
+  }
+
+  // Shared queue + watchdog plumbing for any worker request that resolves with a
+  // solution string. makeMessage(id) builds the payload posted to the worker:
+  // a facelet solve from the scanner, or a random test cube.
+  function enqueueSolveJob(makeMessage) {
+    return new Promise((resolve, reject) => {
+      if (solverState === 'error') { reject(new Error('Solver unavailable')); return; }
+      const id = ++solveSeq;
+      const timer = setTimeout(() => { if (solveJobs.has(id)) resetSolver('timeout'); }, SOLVE_TIMEOUT_MS);
+      solveJobs.set(id, { resolve, reject, timer });
+      const send = () => {
+        if (solverWorker) solverWorker.postMessage(makeMessage(id));
+        else { clearTimeout(timer); solveJobs.delete(id); reject(new Error('Solver unavailable')); }
+      };
+      if (solverState === 'ready') send();
+      else solverReadyWaiters.push(send);
+    });
+  }
+
+  function solveFacelets(facelets) {
+    return enqueueSolveJob(id => ({ type: 'solve', id, facelets }));
+  }
+
+  // Generate (and solve) a uniformly random, always-valid cube in the worker.
+  function solveRandom() {
+    return enqueueSolveJob(id => ({ type: 'random', id }));
+  }
+
+  // Apply a random face-turn scramble in the worker and get its real solution, so the
+  // "New scramble" button can solve with the algorithm instead of rewinding the scramble.
+  function solveScramble(alg) {
+    return enqueueSolveJob(id => ({ type: 'scramble', id, alg }));
+  }
+
+  // ---- Scanner constants ----
+  const SCAN_ORDER = ['U', 'R', 'F', 'D', 'L', 'B'];     // cubejs facelet-string order
+  const SOLVED_FACELETS = SCAN_ORDER.map(f => f.repeat(9)).join('');
+  const CAPTURE_ORDER = ['F', 'R', 'B', 'L', 'U', 'D'];  // the order we ask the user to show
+  // sampleCurrentFace reads each face row-major (top-left first) from the *selfie-mirrored*
+  // preview: the displayed video and the capture canvas both apply scaleX(-1) so taps and live
+  // tints line up with what you see on screen. That mirror flips the sampled grid left-to-right
+  // versus the canonical net (which is read looking at a face from outside), so every sampled
+  // cell must be un-mirrored before it is written into the net. Every face is presented
+  // *upright* to the camera: the front and three sides by turning the cube sideways with the
+  // same face on top, and Up/Down by tipping the cube straight forward/back from that same
+  // front-facing pose (exactly what the guide cube animates). An upright face needs no rotation,
+  // so undoing the mirror is a plain column flip for all six faces. (Center index 4 maps to 4,
+  // so normalizeFacelets / scanOrientationPerm, which read only the center, are unaffected.)
+  // SCAN_REMAP[face][sampleIndex] = canonical facelet index for that face.
+  const SCAN_REMAP = {
+    F: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+    R: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+    B: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+    L: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+    U: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+    D: [2, 1, 0, 5, 4, 3, 8, 7, 6],
+  };
+  const NET_POS = { U: [0, 1], L: [1, 0], F: [1, 1], R: [1, 2], B: [1, 3], D: [2, 1] };
+  const FACE_NAME = { U: 'Up', R: 'Right', F: 'Front', D: 'Down', L: 'Left', B: 'Back' };
+  const FACE_INSTR = {
+    F: 'Hold any face flat to the camera \u2014 that\u2019s your front. Keep this same face on top for the next 3 turns.',
+    R: 'Turn the cube a quarter-turn in the arrow\u2019s direction to bring the next side into view. Keep the same face on top.',
+    B: 'Turn another quarter-turn the same way \u2014 the back comes into view. Same face stays on top.',
+    L: 'Turn once more the same way to show the last side. Same face on top.',
+    U: 'Now tip the cube so its top tilts toward the camera (follow the arrow).',
+    D: 'Last one \u2014 tip the cube so its bottom tilts toward the camera (follow the arrow).',
+  };
+  // Per-step rotation gesture shown by the on-camera 3D guide cube + arrow. The first
+  // face is held flat; R/B/L are successive quarter-turn spins; U/D tip the cube
+  // forward/back. The arrow always mirrors the guide cube's motion direction.
+  const SCAN_GESTURE = {
+    F: { type: 'present',  label: 'Hold steady' },
+    R: { type: 'spin',     label: 'Turn this way' },
+    B: { type: 'spin',     label: 'Turn again' },
+    L: { type: 'spin',     label: 'Turn again' },
+    U: { type: 'tip-fwd',  label: 'Tip top in' },
+    D: { type: 'tip-back', label: 'Tip bottom in' },
+  };
+  // Representative display colors per face letter (orange kept distinct from red).
+  const FACE_COLOR = { U: '#f7f7f7', R: '#d6261f', F: '#00a44a', D: '#ffd400', L: '#ff7a18', B: '#1d63ff' };
+  // Plain color names for the calibration wizard (each face's center is a fixed color).
+  const COLOR_NAME = { U: 'White', R: 'Red', F: 'Green', D: 'Yellow', L: 'Orange', B: 'Blue' };
+  // Up-front calibration order: white first as the neutral anchor, then warm -> cool.
+  const CALIB_ORDER = ['U', 'R', 'L', 'D', 'F', 'B'];
+  const CALIB_FRAC = 0.55;   // central sampling box, as a fraction of the stage's short side
+
+  const scanData = {};       // faceKey -> [9] {r,g,b}
+  const calibData = {};      // faceKey -> {h,s,v} measured from an up-front color close-up
+  const scanOverride = {};   // faceKey -> [9] letters|null: live taps that pin a sticker's color
+  let netLetters = {};       // faceKey -> [9] letters (editable after classify)
+  let scanStep = 0;
+  let calibStep = 0;
+  let scanStream = null;
+
+  // ---- DOM refs ----
+  const scanModal = document.getElementById('scanModal');
+  const scanVideo = document.getElementById('scanVideo');
+  const scanStage = document.getElementById('scanStage');
+  const scanGrid = document.getElementById('scanGrid');
+  const scanGuide = document.getElementById('scanGuide');
+  const scanGuideLabel = document.getElementById('scanGuideLabel');
+  const scanSteps = document.getElementById('scanSteps');
+  const scanInstruction = document.getElementById('scanInstruction');
+  const scanMsg = document.getElementById('scanMsg');
+  const scanNet = document.getElementById('scanNet');
+  const scanCube3d = document.getElementById('scanCube3d');
+  const scanHeading = document.getElementById('scanHeading');
+  const scanCapture = document.getElementById('scanCapture');
+  const scanBackBtn = document.getElementById('scanBack');
+  const scanSolveBtn = document.getElementById('scanSolve');
+  const scanCalib = document.getElementById('scanCalib');
+  const scanCalibCapture = document.getElementById('scanCalibCapture');
+  const scanCalibBack = document.getElementById('scanCalibBack');
+  const scanCalibSkip = document.getElementById('scanCalibSkip');
+  const scanTestBtn = document.getElementById('scanTest');
+  const SCAN_TEST_LABEL = scanTestBtn.textContent;
+  const scanCamErrorMsg = document.getElementById('scanCamErrorMsg');
+  const toastEl = document.getElementById('toast');
+  const scanReviewHelp = document.getElementById('scanReviewHelp');
+  const REVIEW_HELP_DEFAULT = scanReviewHelp.textContent;
+
+  for (let i = 0; i < 9; i++) {
+    const d = document.createElement('div');
+    d.className = i === 4 ? 'gc center' : 'gc';
+    d.addEventListener('click', () => onLiveCellTap(i));   // any cell, the center included, can be re-tinted
+    scanGrid.appendChild(d);
+  }
+
+  // ---- Color sampling & classification ----
+  // sRGB -> HSV. Hue (0..360) is brightness-independent, so it identifies a sticker's
+  // color even when glare or exposure washes it out; saturation isolates the one
+  // near-neutral face (white). This survives real-world lighting far better than an
+  // RGB/Lab distance, which let desaturated stickers collapse onto white.
+  function rgb2hsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h, s: max === 0 ? 0 : d / max, v: max };
+  }
+  function hueDist(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+  }
+  // Reduce a sampled patch to one representative color. Glossy stickers reflect the screen
+  // and room lights as bright near-grey highlights, and the inter-sticker grid lines / shadows
+  // are near-black; both drag a simple average toward white or black and cause misreads. We
+  // drop those contaminants and take the per-channel MEDIAN of what survives: unlike a mean,
+  // a median ignores the remaining glare speckle and edge bleed entirely, so a sticker with a
+  // big reflection still reports its true body color. If a patch is almost all glare/shadow
+  // (e.g. a genuinely bright white sticker), median the raw pixels instead so it isn't lost.
+  function patchColor(data) {
+    const kr = [], kg = [], kb = [], ar = [], ag = [], ab = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      ar.push(r); ag.push(g); ab.push(b);
+      const { s, v } = rgb2hsv(r, g, b);
+      if (v > 0.92 && s < 0.18) continue;   // specular glare / reflection blowout
+      if (v < 0.10) continue;               // grid line / deep shadow
+      kr.push(r); kg.push(g); kb.push(b);
+    }
+    const median = (a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; };
+    if (kr.length >= ar.length * 0.2) return { r: median(kr), g: median(kg), b: median(kb) };
+    return { r: median(ar), g: median(ag), b: median(ab) };
+  }
+
+  const capCanvas = document.createElement('canvas');
+  const capCtx = capCanvas.getContext('2d', { willReadFrequently: true });
+
+  function sampleCurrentFace() {
+    const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+    if (!vw || !vh) return null;
+    capCanvas.width = vw; capCanvas.height = vh;
+    // Mirror horizontally so image-left maps to the cube's own left edge, which is
+    // what the facelet ordering expects (an un-mirrored webcam flips the columns).
+    capCtx.save();
+    capCtx.translate(vw, 0); capCtx.scale(-1, 1);
+    capCtx.drawImage(scanVideo, 0, 0, vw, vh);
+    capCtx.restore();
+    // Map the on-screen centered guide square through the object-fit: cover transform.
+    const sw = scanStage.clientWidth, sh = scanStage.clientHeight;
+    const scale = Math.max(sw / vw, sh / vh);
+    const side = (0.7 * Math.min(sw, sh)) / scale;
+    const x0 = vw / 2 - side / 2, y0 = vh / 2 - side / 2;
+    const cell = side / 3, patch = Math.max(8, Math.floor(cell * 0.5));
+    const out = [];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cx = x0 + (c + 0.5) * cell, cy = y0 + (r + 0.5) * cell;
+        const px = Math.max(0, Math.min(vw - patch, Math.floor(cx - patch / 2)));
+        const py = Math.max(0, Math.min(vh - patch, Math.floor(cy - patch / 2)));
+        out.push(patchColor(capCtx.getImageData(px, py, patch, patch).data));
+      }
+    }
+    return out;
+  }
+
+  // Sample one large central patch for the up-front color calibration: the user fills the
+  // box with a single color, so a wide average (minus glare/shadow) nails that color cleanly.
+  function sampleCalibCenter() {
+    const vw = scanVideo.videoWidth, vh = scanVideo.videoHeight;
+    if (!vw || !vh) return null;
+    capCanvas.width = vw; capCanvas.height = vh;
+    capCtx.drawImage(scanVideo, 0, 0, vw, vh);
+    const sw = scanStage.clientWidth, sh = scanStage.clientHeight;
+    const scale = Math.max(sw / vw, sh / vh);
+    const side = (CALIB_FRAC * Math.min(sw, sh)) / scale;
+    const x0 = Math.max(0, Math.floor(vw / 2 - side / 2));
+    const y0 = Math.max(0, Math.floor(vh / 2 - side / 2));
+    const w = Math.min(vw - x0, Math.max(8, Math.floor(side)));
+    const h = Math.min(vh - y0, Math.max(8, Math.floor(side)));
+    return patchColor(capCtx.getImageData(x0, y0, w, h).data);
+  }
+
+  // The live on-camera preview and the final review net share the same per-cube color
+  // centers, so they adapt to whatever this physical cube actually looks like. The preview
+  // matches each pixel independently: white is the single near-neutral center (lowest
+  // saturation) — a sticker reads white when its saturation falls below the midpoint between
+  // white and the least-saturated colored face — and everything else is matched by hue alone,
+  // which shrugs off glare, shadow and exposure shifts. The committed net additionally
+  // balances all 54 facelets to exactly nine of each color (see classifyAll), so it can
+  // correct a systematic misread that the per-pixel preview can't.
+  //
+  // Before a face has been captured we have no measured center for it, so fall back to
+  // these nominal anchors; as faces are scanned the model converges to the real ones.
+  const DEFAULT_HSV = {
+    U: { h:   0, s: 0.05, v: 0.95 },   // white (near-neutral)
+    R: { h:   0, s: 0.85, v: 0.85 },   // red
+    L: { h:  24, s: 0.95, v: 1.00 },   // orange
+    D: { h:  52, s: 0.95, v: 1.00 },   // yellow
+    F: { h: 140, s: 0.75, v: 0.62 },   // green
+    B: { h: 215, s: 0.80, v: 0.95 },   // blue
+  };
+  // A measured up-front calibration close-up is the cleanest per-cube anchor, so prefer it;
+  // otherwise use this face's scanned center sticker, falling back to the nominal default.
+  function centerHsv(f) {
+    if (calibData[f]) return calibData[f];
+    if (scanData[f]) return rgb2hsv(scanData[f][4].r, scanData[f][4].g, scanData[f][4].b);
+    return DEFAULT_HSV[f];
+  }
+  // Build the relative color model from the centers captured so far. `extra` lets the
+  // live preview anchor the face currently in view by its own freshly-sampled center,
+  // so the tints you see while aiming are exactly what gets saved when you capture.
+  function buildModel(extra) {
+    const centers = SCAN_ORDER.map(f => ({ f, hsv: (extra && extra.f === f) ? extra.hsv : centerHsv(f) }));
+    const whiteRef = centers.reduce((a, b) => (b.hsv.s < a.hsv.s ? b : a));
+    const chromatic = centers.filter(c => c !== whiteRef);
+    const minChromaS = Math.min(...chromatic.map(c => c.hsv.s));
+    const sThresh = (whiteRef.hsv.s + minChromaS) / 2 + 1e-6;
+    return { whiteRef, chromatic, sThresh };
+  }
+  function classifyPx(px, m) {
+    const hsv = rgb2hsv(px.r, px.g, px.b);
+    if (hsv.s < m.sThresh) return m.whiteRef.f;
+    let best = m.chromatic[0], bd = Infinity;
+    for (const c of m.chromatic) { const d = hueDist(hsv.h, c.hsv.h); if (d < bd) { bd = d; best = c; } }
+    return best.f;
+  }
+  // Project an HSV color onto the chroma plane: hue as angle, saturation as radius. Distance
+  // here blends hue and saturation while ignoring brightness, so glare/shadow don't bias it.
+  function chromaAB(hsv) {
+    const rad = hsv.h * Math.PI / 180;
+    return { a: hsv.s * Math.cos(rad), b: hsv.s * Math.sin(rad) };
+  }
+  // Commit the review net by solving all 54 facelets together. Per-pixel matching can't undo
+  // a *systematic* misread: if this cube's red photographs orange-ish, every red sticker flips
+  // and you get e.g. 18 orange / 0 red — wrong, and not even a legal cube. A real 3x3 has
+  // exactly nine of each color, so we score every facelet against the six centers in the chroma
+  // plane and hand colors out cheapest-first with each capped at nine. That cap fixes red/orange
+  // over-filling AND stops glare-desaturated stickers from collapsing onto white, and guarantees
+  // a count-valid result. Greedy suffices: on a clean scan every facelet still lands on its
+  // nearest center (no cap is ever hit), so nothing changes there.
+  function classifyAll() {
+    const centers = SCAN_ORDER.map(f => ({ f, ...chromaAB(centerHsv(f)) }));
+    const cells = [];
+    for (const f of SCAN_ORDER) {
+      scanData[f].forEach((px, i) => cells.push({ f, i: SCAN_REMAP[f][i], ...chromaAB(rgb2hsv(px.r, px.g, px.b)) }));
+    }
+    const pairs = [];
+    cells.forEach((cell, ci) => {
+      for (const c of centers) {
+        const da = cell.a - c.a, db = cell.b - c.b;
+        pairs.push({ cost: da * da + db * db, ci, f: c.f });
+      }
+    });
+    pairs.sort((x, y) => x.cost - y.cost);
+    const cap = {}; for (const f of SCAN_ORDER) cap[f] = 9;
+    const pick = new Array(cells.length).fill(null);
+    for (const { ci, f } of pairs) {
+      if (pick[ci] === null && cap[f] > 0) { pick[ci] = f; cap[f]--; }
+    }
+    netLetters = {}; for (const f of SCAN_ORDER) netLetters[f] = new Array(9);
+    cells.forEach((cell, ci) => { netLetters[cell.f][cell.i] = pick[ci]; });
+  }
+
+  // ---- Live color preview ----
+  // While the camera is live, continuously sample the nine guide cells and tint them
+  // with the color we'd save, so you can confirm the read *before* capturing. It shares the
+  // same per-cube centers as the final net (anchored on the face in view), so the tints match
+  // what gets committed — except where the net's "nine of each" balancing corrects a misread.
+  const LIVE_INTERVAL = 90;            // ms between samples (~11 fps) to spare the CPU
+  let livePreviewOn = false, livePreviewRAF = 0, lastLiveTs = 0;
+
+  function tint(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
+  function clearLiveTints() {
+    for (const gc of scanGrid.children) { gc.style.backgroundColor = ''; gc.classList.remove('pinned'); }
+    scanCalib.style.backgroundColor = '';
+  }
+  function livePreviewTick(ts) {
+    if (!livePreviewOn) return;
+    livePreviewRAF = requestAnimationFrame(livePreviewTick);
+    const mode = scanModal.dataset.mode;
+    if (scanModal.hidden || scanModal.dataset.cam !== 'live' || (mode !== 'camera' && mode !== 'calibrate')) return;
+    if (ts - lastLiveTs < LIVE_INTERVAL) return;
+    lastLiveTs = ts;
+    if (mode === 'calibrate') {
+      const c = sampleCalibCenter();
+      if (c) scanCalib.style.backgroundColor = `rgba(${c.r | 0}, ${c.g | 0}, ${c.b | 0}, .82)`;
+      return;
+    }
+    const cells = sampleCurrentFace();
+    if (!cells) return;
+    const face = CAPTURE_ORDER[scanStep];
+    const m = buildModel({ f: face, hsv: rgb2hsv(cells[4].r, cells[4].g, cells[4].b) });
+    const ov = scanOverride[face];
+    const gcs = scanGrid.children;
+    for (let i = 0; i < 9; i++) {
+      if (ov && ov[i]) {
+        gcs[i].style.backgroundColor = tint(FACE_COLOR[ov[i]], 0.96);
+        gcs[i].classList.add('pinned');
+      } else {
+        gcs[i].style.backgroundColor = tint(FACE_COLOR[classifyPx(cells[i], m)], 0.78);
+        gcs[i].classList.remove('pinned');
+      }
+    }
+  }
+  function startLivePreview() {
+    if (livePreviewOn) return;
+    livePreviewOn = true;
+    lastLiveTs = 0;
+    livePreviewRAF = requestAnimationFrame(livePreviewTick);
+  }
+  function stopLivePreview() {
+    livePreviewOn = false;
+    if (livePreviewRAF) cancelAnimationFrame(livePreviewRAF);
+    livePreviewRAF = 0;
+    clearLiveTints();
+  }
+
+  // ---- UI helpers ----
+  function setScanMsg(text, kind) {
+    scanMsg.textContent = text || '';
+    scanMsg.className = 'scan-msg' + (kind ? ' ' + kind : '');
+  }
+
+  function layoutGuide() {
+    const short = Math.min(scanStage.clientWidth, scanStage.clientHeight);
+    const s = 0.7 * short;
+    scanGrid.style.width = s + 'px';
+    scanGrid.style.height = s + 'px';
+    const cs = CALIB_FRAC * short;
+    scanCalib.style.width = cs + 'px';
+    scanCalib.style.height = cs + 'px';
+  }
+
+  function renderSteps() {
+    scanSteps.innerHTML = '';
+    CAPTURE_ORDER.forEach((f, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'scan-chip' + (i === scanStep ? ' active' : '') + (scanData[f] ? ' done' : '');
+      const sw = document.createElement('span');
+      sw.className = 'sw';
+      if (scanData[f]) {
+        const c = scanData[f][4];
+        sw.style.background = `rgb(${c.r | 0}, ${c.g | 0}, ${c.b | 0})`;
+      }
+      chip.appendChild(sw);
+      chip.appendChild(document.createTextNode(FACE_NAME[f]));
+      scanSteps.appendChild(chip);
+    });
+  }
+
+  function updateCameraStep() {
+    const f = CAPTURE_ORDER[scanStep];
+    scanInstruction.innerHTML = `<b>Face ${scanStep + 1} of 6 — ${FACE_NAME[f]}.</b> ${FACE_INSTR[f]} Tap a square to fix a mis-read color.`;
+    const gesture = SCAN_GESTURE[f];
+    scanGuide.dataset.gesture = gesture.type;
+    scanGuideLabel.textContent = gesture.label;
+    scanBackBtn.disabled = scanStep === 0;
+    scanCapture.textContent = scanStep === 5 ? 'Capture & review' : 'Capture face';
+    renderSteps();
+  }
+
+  function renderCalibSteps() {
+    scanSteps.innerHTML = '';
+    CALIB_ORDER.forEach((f, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'scan-chip' + (i === calibStep ? ' active' : '') + (calibData[f] ? ' done' : '');
+      const sw = document.createElement('span');
+      sw.className = 'sw';
+      sw.style.background = FACE_COLOR[f];
+      chip.appendChild(sw);
+      chip.appendChild(document.createTextNode(COLOR_NAME[f]));
+      scanSteps.appendChild(chip);
+    });
+  }
+
+  function updateCalibStep() {
+    const f = CALIB_ORDER[calibStep];
+    scanInstruction.innerHTML = `<b>Color ${calibStep + 1} of 6 — ${COLOR_NAME[f]}.</b> Fill the outlined box with your cube\u2019s ${COLOR_NAME[f].toLowerCase()} stickers, then capture.`;
+    scanCalib.style.borderColor = FACE_COLOR[f];
+    scanCalib.style.backgroundColor = '';
+    scanCalibBack.disabled = calibStep === 0;
+    scanCalibCapture.textContent = calibStep === 5 ? 'Capture & scan' : 'Capture color';
+    renderCalibSteps();
+  }
+
+  // Lay the six faces out as a labelled, unfolded cross (U top, L/F/R/B across the
+  // middle, D bottom) so the whole cube reads at a glance. Every sticker cycles colors
+  // on tap; centers are marked with a ring but stay editable so a misread one can be fixed.
+  function cycleNetCell(f, i, cell, isCenter) {
+    const next = SCAN_ORDER[(SCAN_ORDER.indexOf(netLetters[f][i]) + 1) % SCAN_ORDER.length];
+    netLetters[f][i] = next;
+    cell.style.background = FACE_COLOR[next];
+    cell.title = FACE_NAME[next] + (isCenter ? ' (center)' : '');
+    if (cube3dCells[f]) cube3dCells[f][i].style.background = FACE_COLOR[next];
+    validateNet();
+  }
+  function renderNet() {
+    scanNet.innerHTML = '';
+    for (const f of ['U', 'L', 'F', 'R', 'B', 'D']) {
+      const [fr, fc] = NET_POS[f];
+      const panel = document.createElement('div');
+      panel.className = 'net-face';
+      panel.style.gridRow = fr + 1;
+      panel.style.gridColumn = fc + 1;
+      const label = document.createElement('span');
+      label.className = 'net-face-label';
+      label.textContent = FACE_NAME[f];
+      panel.appendChild(label);
+      const grid = document.createElement('div');
+      grid.className = 'net-face-grid';
+      for (let i = 0; i < 9; i++) {
+        const isCenter = i === 4;
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'net-cell' + (isCenter ? ' center' : '');
+        cell.style.background = FACE_COLOR[netLetters[f][i]];
+        cell.title = FACE_NAME[netLetters[f][i]] + (isCenter ? ' (center)' : '');
+        cell.addEventListener('click', () => cycleNetCell(f, i, cell, isCenter));
+        grid.appendChild(cell);
+      }
+      panel.appendChild(grid);
+      scanNet.appendChild(panel);
+    }
+  }
+
+  // Spinning 3D cube built once, painted from netLetters. Its faces use the .sg-cube
+  // transforms (pure net-unfolding rotations), so cubejs's row-major facelet index i
+  // maps onto grid cell i for every face — no per-face remapping needed.
+  const RC_FACE_CLASS = { U: 'rc-up', R: 'rc-right', F: 'rc-front', D: 'rc-down', L: 'rc-left', B: 'rc-back' };
+  const cube3dCells = {};
+  function buildCube3D() {
+    if (scanCube3d.dataset.built) return;
+    const view = document.createElement('div'); view.className = 'rc-view';
+    const cube = document.createElement('div'); cube.className = 'rc-cube';
+    for (const f of SCAN_ORDER) {
+      const face = document.createElement('div');
+      face.className = 'rc-face ' + RC_FACE_CLASS[f];
+      const cells = [];
+      for (let i = 0; i < 9; i++) {
+        const s = document.createElement('div');
+        s.className = 'rc-sticker';
+        face.appendChild(s);
+        cells.push(s);
+      }
+      cube3dCells[f] = cells;
+      cube.appendChild(face);
+    }
+    view.appendChild(cube);
+    scanCube3d.appendChild(view);
+    scanCube3d.dataset.built = '1';
+  }
+
+  function paintCube3D() {
+    buildCube3D();
+    for (const f of SCAN_ORDER)
+      for (let i = 0; i < 9; i++)
+        cube3dCells[f][i].style.background = FACE_COLOR[netLetters[f][i]];
+  }
+
+  // Map a color letter to the visualizer's faceId (FACE_DEFS: 0=R 1=L 2=U 3=D 4=F 5=B).
+  const LETTER_TO_FACEID = { U: 2, R: 0, F: 4, D: 3, L: 1, B: 5 };
+
+  // The scan can be taken with the cube held in any orientation. normalizeFacelets snaps the
+  // solution to canonical centers, so the render would otherwise always show white-up/green-front
+  // (the "orange face turned green" report). Build the matching whole-cube color rotation
+  // (faceId -> palette index) — the exact inverse of normalizeFacelets' relabel — so the rendered
+  // scramble reproduces the physical cube. Returns null for a mis-scan (duplicate centers).
+  function scanOrientationPerm() {
+    const perm = [0, 1, 2, 3, 4, 5];
+    for (const d of SCAN_ORDER) {
+      const center = netLetters[d] && netLetters[d][4];
+      if (!(center in LETTER_TO_FACEID)) return null;
+      perm[LETTER_TO_FACEID[d]] = LETTER_TO_FACEID[center];
+    }
+    return new Set(perm).size === 6 ? perm : null;
+  }
+
+  function buildFaceletString() {
+    return SCAN_ORDER.map(f => netLetters[f].join('')).join('');
+  }
+
+  // cube.js only evaluates a facelet string correctly when the six centers sit in the
+  // canonical U,R,F,D,L,B order. A scan taken with the cube held in any other orientation
+  // (say the red face shown first, where "Up" is expected) lands the centers elsewhere —
+  // cube.js then mis-reads piece orientation off the wrong axis and falsely reports a valid
+  // cube as "two pieces swapped." Re-letter every facelet so the captured centers become
+  // U,R,F,D,L,B; that's a pure whole-cube rotation, so it changes neither solvability nor
+  // the eventual solution (applyScannedSolution rebuilds the on-screen cube from the solution
+  // itself). A duplicated center means a genuine mis-scan, so leave those for the solver to flag.
+  function normalizeFacelets(str) {
+    const centers = [4, 13, 22, 31, 40, 49].map(i => str[i]);
+    const remap = {};
+    SCAN_ORDER.forEach((f, k) => { remap[centers[k]] = f; });
+    if (Object.keys(remap).length !== 6) return str;
+    return [...str].map(ch => remap[ch]).join('');
+  }
+
+  function validateNet() {
+    const str = buildFaceletString();
+    const counts = {};
+    for (const ch of str) counts[ch] = (counts[ch] || 0) + 1;
+    const bad = SCAN_ORDER.filter(f => counts[f] !== 9);
+    if (bad.length) {
+      setScanMsg(`Each color needs exactly 9 stickers (off: ${bad.map(f => `${FACE_NAME[f]} ${counts[f] || 0}`).join(', ')}).`, 'err');
+      scanSolveBtn.disabled = true;
+      return false;
+    }
+    setScanMsg('Looks complete — tap "Solve it".', 'ok');
+    scanSolveBtn.disabled = false;
+    return true;
+  }
+
+  // ---- State transitions ----
+  function enterReview() {
+    stopLivePreview();
+    scanModal.dataset.mode = 'review';
+    scanHeading.textContent = 'Check the scan';
+    scanSolveBtn.textContent = 'Solve it';
+    scanReviewHelp.textContent = REVIEW_HELP_DEFAULT;
+    renderNet();
+    paintCube3D();
+    validateNet();
+  }
+
+  function backToCamera() {
+    scanModal.dataset.mode = 'camera';
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    for (const f of CAPTURE_ORDER) { delete scanData[f]; delete scanOverride[f]; }
+    setScanMsg('', null);
+    updateCameraStep();
+    startLivePreview();
+  }
+
+  function onCapture() {
+    const f = CAPTURE_ORDER[scanStep];
+    const cells = sampleCurrentFace();
+    if (!cells) { setScanMsg('Camera is still warming up — give it a second.', 'err'); return; }
+    scanData[f] = cells;
+    setScanMsg('', null);
+    if (scanStep < 5) { scanStep++; updateCameraStep(); }
+    else { classifyAll(); applyOverrides(); enterReview(); }
+  }
+
+  function onBack() {
+    if (scanStep > 0) { scanStep--; updateCameraStep(); }
+  }
+
+  // Tap a live-preview sticker to pin its color when the auto-read is wrong (glare, odd light).
+  // Each tap cycles null (auto) -> each color -> null; a pin overrides this facelet in the net.
+  function onLiveCellTap(i) {
+    if (scanModal.dataset.mode !== 'camera' || scanModal.dataset.cam !== 'live') return;
+    const f = CAPTURE_ORDER[scanStep];
+    if (!scanOverride[f]) scanOverride[f] = new Array(9).fill(null);
+    const states = [null, ...SCAN_ORDER];
+    const ov = scanOverride[f][i] = states[(states.indexOf(scanOverride[f][i]) + 1) % states.length];
+    const gc = scanGrid.children[i];
+    if (ov) { gc.style.backgroundColor = tint(FACE_COLOR[ov], 0.96); gc.classList.add('pinned'); }
+    else { gc.classList.remove('pinned'); }
+  }
+
+  // Pinned live taps win over the auto-classified net (same role as editing a review cell).
+  function applyOverrides() {
+    for (const f of CAPTURE_ORDER) {
+      const ov = scanOverride[f];
+      if (!ov) continue;
+      for (let i = 0; i < 9; i++) if (ov[i]) netLetters[f][SCAN_REMAP[f][i]] = ov[i];
+    }
+  }
+
+  // ---- Calibration phase (teach the per-cube color model before the geometric scan) ----
+  function startCapture() {
+    scanModal.dataset.mode = 'camera';
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    scanCalib.style.backgroundColor = '';
+    setScanMsg('', null);
+    updateCameraStep();
+  }
+
+  function onCalibCapture() {
+    const c = sampleCalibCenter();
+    if (!c) { setScanMsg('Camera is still warming up \u2014 give it a second.', 'err'); return; }
+    calibData[CALIB_ORDER[calibStep]] = rgb2hsv(c.r, c.g, c.b);
+    setScanMsg('', null);
+    if (calibStep < 5) { calibStep++; updateCalibStep(); }
+    else startCapture();
+  }
+
+  function onCalibBack() {
+    if (calibStep > 0) { calibStep--; updateCalibStep(); }
+  }
+
+  // Skip keeps whatever colors were calibrated so far (better anchors than the defaults);
+  // skipping at the very first color is identical to the original no-calibration flow.
+  function skipCalibration() {
+    startCapture();
+  }
+
+  async function onSolve() {
+    if (!validateNet()) return;
+    const facePerm = scanOrientationPerm();
+    const str = normalizeFacelets(buildFaceletString());
+    // cubejs always returns a (non-empty) move sequence, even for a solved cube, so
+    // catch the already-solved case from the scanned layout itself.
+    if (str === SOLVED_FACELETS) {
+      closeScanner();
+      setScramble([], '');
+      if (facePerm) { faceColorPerm = facePerm; recolorStickers(); }
+      showToast('That cube is already solved! \uD83C\uDF89');
+      return;
+    }
+    const original = scanSolveBtn.textContent;
+    scanSolveBtn.disabled = true;
+    scanSolveBtn.textContent = 'Solving…';
+    setScanMsg('Solving with Kociemba\u2019s two-phase algorithm…', null);
+    ensureSolver();
+    try {
+      const solution = await solveFacelets(str);
+      applyScannedSolution(solution, undefined, facePerm);
+    } catch (err) {
+      scanSolveBtn.disabled = false;
+      scanSolveBtn.textContent = original;
+      const reason = (err && err.message) || '';
+      let msg;
+      if (err && err.unsolvable) {
+        msg = `${reason} That can\u2019t happen on a real cube — it\u2019s often red vs orange. Fix the colors below, then tap \u201CSolve it\u201D again.`;
+      } else if (reason === 'Solver unavailable' || reason === 'Solver failed to load') {
+        msg = 'Couldn\u2019t load the solver. Check your connection, then tap \u201CSolve it\u201D again.';
+      } else {
+        msg = 'That layout doesn\u2019t look like a solvable cube. Double-check the colors below (watch red vs orange) and try again.';
+      }
+      setScanMsg(msg, 'err');
+    }
+  }
+
+  // Demo shortcut: skip the camera entirely and solve a uniformly random, valid
+  // cube. Reuses the scanner's solve→apply pipeline so it animates just like a scan.
+  async function onRandomTest() {
+    const original = scanTestBtn.textContent;
+    scanTestBtn.disabled = true;
+    scanTestBtn.textContent = 'Building a random cube…';
+    setScanMsg('Generating a random solvable cube…', null);
+    ensureSolver();
+    try {
+      const solution = await solveRandom();
+      applyScannedSolution(solution, 'Random cube ready! Press <b>\u25B6 Play</b> to watch it solve.');
+    } catch (err) {
+      scanTestBtn.disabled = false;
+      scanTestBtn.textContent = original;
+      const reason = (err && err.message) || '';
+      const msg = (reason === 'Solver unavailable' || reason === 'Solver failed to load')
+        ? 'Couldn\u2019t load the solver. Check your connection, then try again.'
+        : 'Couldn\u2019t build a random cube. Check your connection, then try again.';
+      setScanMsg(msg, 'err');
+    }
+  }
+
+  function applyScannedSolution(solution, toastMsg, facePerm) {
+    closeScanner();
+    // The solution takes scanned -> solved; its inverse takes solved -> scanned.
+    // Feeding that inverse to setScramble reconstructs the scanned state on screen and
+    // recomputes solveMoves back to exactly this solution, ready for Play.
+    const parsed = parseScramble(solution.trim());
+    const scrambleMoves = parsed.moves.slice().reverse().map(inverse);
+    setScramble(scrambleMoves);
+    // setScramble resets to the canonical palette; repaint into the scanned orientation
+    // so each face shows the color the cube was physically held with.
+    if (facePerm) { faceColorPerm = facePerm; recolorStickers(); }
+    showToast(toastMsg || 'Cube scanned! Press <b>\u25B6 Play</b> to watch it solve.');
+    nudgePlay();
+  }
+
+  // ---- Toast + play nudge ----
+  let toastTimer = null;
+  function showToast(html) {
+    toastEl.innerHTML = html;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 6500);
+  }
+  function nudgePlay() {
+    if (mqMobile.matches) applySheetState('expanded');
+    const pp = document.getElementById('playPause');
+    pp.classList.add('pulse');
+    setTimeout(() => pp.classList.remove('pulse'), 5500);
+  }
+
+  // ---- Camera lifecycle ----
+  async function startCamera() {
+    scanModal.dataset.cam = 'init';
+    setScanMsg('', null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      scanModal.dataset.cam = 'error';
+      scanCamErrorMsg.textContent = 'This browser doesn\u2019t support camera access.';
+      return;
+    }
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      scanVideo.srcObject = scanStream;
+      await scanVideo.play();
+      scanModal.dataset.cam = 'live';
+      scanCapture.disabled = false;
+      scanCalibCapture.disabled = false;
+      layoutGuide();
+      startLivePreview();
+    } catch (err) {
+      scanModal.dataset.cam = 'error';
+      scanCamErrorMsg.textContent = (err && err.name === 'NotAllowedError')
+        ? 'Camera permission was blocked. Allow camera access in your browser, then try again.'
+        : 'We couldn\u2019t start your camera. Close any app that\u2019s using it, then try again.';
+    }
+  }
+
+  function stopCamera() {
+    stopLivePreview();
+    if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+    scanVideo.srcObject = null;
+  }
+
+  function scanKeydown(e) { if (e.key === 'Escape') closeScanner(); }
+
+  // Open the calibrate -> capture -> review flow (the scanner's only method).
+  function chooseFaces() {
+    scanModal.dataset.mode = 'calibrate';
+    scanHeading.textContent = 'Calibrate colors';
+    calibStep = 0;
+    setScanMsg('', null);
+    updateCalibStep();
+    layoutGuide();
+  }
+
+  function openScanner() {
+    scanModal.hidden = false;
+    scanHeading.textContent = 'Scan your cube';
+    scanStep = 0;
+    calibStep = 0;
+    netLetters = {};
+    for (const f of CAPTURE_ORDER) { delete scanData[f]; delete scanOverride[f]; }
+    for (const f of CALIB_ORDER) delete calibData[f];
+    scanCapture.disabled = true;
+    scanCalibCapture.disabled = true;
+    scanTestBtn.disabled = false;
+    scanTestBtn.textContent = SCAN_TEST_LABEL;
+    scanSteps.innerHTML = '';
+    scanInstruction.textContent = '';
+    setScanMsg('', null);
+    ensureSolver();   // warm up the solver while the user scans
+    startCamera();
+    chooseFaces();    // skip the method chooser: open straight into the face-by-face flow
+    document.addEventListener('keydown', scanKeydown);
+  }
+
+  function closeScanner() {
+    stopCamera();
+    scanModal.hidden = true;
+    document.removeEventListener('keydown', scanKeydown);
+  }
+
+  document.getElementById('scanCube').addEventListener('click', openScanner);
+  document.getElementById('scanClose').addEventListener('click', closeScanner);
+  scanCapture.addEventListener('click', onCapture);
+  scanBackBtn.addEventListener('click', onBack);
+  scanCalibCapture.addEventListener('click', onCalibCapture);
+  scanCalibBack.addEventListener('click', onCalibBack);
+  scanCalibSkip.addEventListener('click', skipCalibration);
+  document.getElementById('scanRestart').addEventListener('click', backToCamera);
+  scanSolveBtn.addEventListener('click', onSolve);
+  scanTestBtn.addEventListener('click', onRandomTest);
+  document.getElementById('scanCamRetry').addEventListener('click', startCamera);
+  window.addEventListener('resize', () => { if (!scanModal.hidden) layoutGuide(); });
+
+  // ---------------------------------------------------------------------------
   // Resize + render loop
   // ---------------------------------------------------------------------------
   window.addEventListener('resize', () => {
@@ -1343,11 +2819,16 @@
   // ---------------------------------------------------------------------------
   buildCube();
   applySpeed();
-  newScramble();
+  const firstScramble = newScramble();
   loop();
 
-  // Auto-start the solve shortly after load for a stunning first impression.
-  setTimeout(() => { if (!playing && currentIndex === 0) play(); }, 1600);
+  // Auto-start the solve shortly after load for a stunning first impression. Wait for
+  // the real (algorithmic) solution so the debut isn't the scramble played backwards,
+  // but keep a beat to admire the scramble and a cap so we still play offline.
+  Promise.all([
+    new Promise(res => setTimeout(res, 1400)),
+    Promise.race([firstScramble, new Promise(res => setTimeout(res, 2600))]),
+  ]).then(() => { if (!playing && currentIndex === 0) play(); });
   </script>
 </body>
 </html>
