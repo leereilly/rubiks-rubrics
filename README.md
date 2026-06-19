@@ -43,3 +43,7 @@ and the visualizer plays it back.
 ## Kudos
 
 Made with ♥ and [GitHub Copilot](https://github.com/features/copilot), Claude Opus 4.8, [three.js](https://threejs.org/) + [cube.js](https://github.com/ldez/cubejs) 
+
+## License
+
+[MIT](LICENSE)
