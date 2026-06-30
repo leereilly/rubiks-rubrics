@@ -7,9 +7,28 @@ itself. Either way, you control the show.
 
 **▶ Live demo:** https://leereilly.net/rubiks-rubriks/
 
-![](screenshot.webp)
+![Rubik's Rubrics main view: a glossy 3D cube with the control panel](images/app.png)
 
 ## Features
+
+### Learn to Solve coach
+
+A built-in, step-by-step teaching mode walks you through solving your cube with the
+beginner **Layer-by-Layer** method. Scan your real cube (or use a random/custom one), tap
+**Learn to solve**, and follow along: each of the seven stages shows the named algorithm,
+a plain-English cue, and **Back / Next move / Demo stage** controls while the 3D cube
+demonstrates every move in sync. The solver runs entirely in your browser.
+
+![The Learn to Solve coach overlay guiding the white-cross stage](images/learn-to-solve.png)
+
+### GitHub contributions mode
+
+Repaint the stickers as GitHub contribution-graph squares (those familiar greens) for a
+playful, on-brand look.
+
+![The cube rendered in GitHub contribution-graph greens](images/github-contributions.png)
+
+### More
 
 - **Random scramble:** the cube shows up in a random state every time.
 - **Scan a real cube with your webcam:** turn on your camera, hold up a physical cube
@@ -22,8 +41,6 @@ itself. Either way, you control the show.
 - **Speed slider:** go from a slow crawl to turbo.
 - **Timeline scrubber + transport:** scrub anywhere between *Scrambled* and *Solved*,
   step a single move back/forth, jump to either end, or play/pause.
-- **GitHub contributions mode:** repaint the stickers as GitHub contribution-graph
-  squares (those familiar greens).
 - **Auto-rotate**, orbit (drag), and zoom (scroll) for a showcase feel.
 - **Stunning rendering:** physically based glossy stickers, image-based reflections,
   soft contact shadows, and subtle bloom.
@@ -45,6 +62,11 @@ exactly nine times, which fixes systematic misreads like red-vs-orange and guara
 legal cube. If the automatic read still gets a sticker wrong, you can fix it by hand on
 the net before solving. The solution it returns is fed through the same
 reverse-and-invert machinery, and the visualizer plays it back.
+
+The **Learn to Solve coach** uses a separate, from-scratch beginner Layer-by-Layer solver
+written in plain JavaScript (no dependencies, no build step). Rather than the shortest
+solution, it produces a human-friendly sequence grouped into the seven teachable stages,
+each with the named algorithm a learner would apply by hand on a real cube.
 
 ## Kudos
 
