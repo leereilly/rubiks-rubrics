@@ -549,6 +549,30 @@
     background: rgba(46,160,67,.1); border: 1px solid rgba(63,185,80,.25);
     border-radius: 9px; padding: 9px 11px; word-spacing: 3px; line-height: 1.5;
   }
+  /* Expandable beginner guide for the named algorithm (collapsed by default). */
+  .coach-why { margin-top: 8px; }
+  .coach-why > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: var(--accent-bright); padding: 2px 0;
+  }
+  .coach-why > summary::-webkit-details-marker { display: none; }
+  .coach-why > summary::before { content: "\24D8"; font-size: 13px; font-weight: 700; }
+  .coach-why > summary::after {
+    content: "\203A"; font-size: 14px; color: var(--text-dim);
+    transition: transform .15s ease;
+  }
+  .coach-why[open] > summary::after { transform: rotate(90deg); }
+  .coach-why-body {
+    margin-top: 7px; font-size: 12px; line-height: 1.5; color: var(--text-dim);
+    border-left: 2px solid rgba(63,185,80,.35); padding: 1px 0 1px 10px;
+  }
+  .coach-why-body b { color: var(--text); }
+  .coach-why-body code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px; color: var(--accent-bright); background: rgba(46,160,67,.12);
+    border-radius: 5px; padding: 1px 4px;
+  }
 
   .coach-controls { display: flex; gap: 8px; margin-bottom: 11px; flex-wrap: wrap; }
   .coach-btn {
@@ -3308,19 +3332,26 @@
     function solve(facelets) {
       const ref = { s: facelets, out: [], stageMoves: [] };
       const stages = [];
-      const run = (key, name, blurb, algName, fn) => {
+      const run = (key, name, blurb, algName, fn, tip) => {
         ref.stageMoves = [];
         fn(ref);
-        stages.push({ key, name, blurb, algName, tokens: ref.stageMoves.slice() });
+        stages.push({ key, name, blurb, algName, tip: tip || '', tokens: ref.stageMoves.slice() });
       };
       run('orient', 'Get ready', 'Hold the cube so the WHITE centre is on the bottom and the YELLOW centre is on top. We turn it over for you on screen, so do the same with your cube.', 'x2', (r) => rec(r, 'x2'));
-      run('cross', 'White cross', 'Build a white plus on the bottom: four white edges around the white centre, each side colour matching its neighbouring centre.', 'Intuitive', whiteCross);
-      run('corners', 'White corners', 'Drop the four white corners into the bottom layer to finish the first layer, using the R U R\u2032 \u201Cinsert\u201D trigger.', "R U R'  /  R U' R'", firstLayerCorners);
-      run('middle', 'Middle layer', 'Insert the four non-yellow edges into the middle layer with the right- and left-hand edge inserts.', "U R U' R' U' F' U F", middleLayer);
-      run('ycross', 'Yellow cross', 'Make a yellow plus on top. Repeat F R U R\u2032 U\u2032 F\u2032 from a dot, an L-shape, or a line until you get the cross.', "F R U R' U' F'", yellowCross);
-      run('yedges', 'Place yellow edges', 'Cycle the top edges until each side colour matches its centre.', "R U R' U R U2 R'", placeLLEdges);
-      run('ycorners', 'Place yellow corners', 'Send each yellow corner to its correct location (the twist comes next).', "U R U' L' U R' U' L", positionLLCorners);
-      run('twist', 'Twist yellow corners', 'Orient each corner yellow-up with R\u2032 D\u2032 R D, turning the top (U) between corners. The cube finishes solved.', "R' D' R D", orientLLCorners);
+      run('cross', 'White cross', 'Build a white plus on the bottom: four white edges around the white centre, each side colour matching its neighbouring centre.', 'Intuitive', whiteCross,
+        'No fixed algorithm here \u2014 it\u2019s done by eye. Find a white edge, spin the top (U) until it sits above the centre its <b>other</b> colour matches, then turn that face twice (e.g. <code>F2</code>) to drop it into the cross. A matched edge has white on the bottom <b>and</b> its side colour lined up with the centre.');
+      run('corners', 'White corners', 'Drop the four white corners into the bottom layer to finish the first layer, using the R U R\u2032 \u201Cinsert\u201D trigger.', "R U R'  /  R U' R'", firstLayerCorners,
+        'The <code>R U R\u2032</code> \u201Ctrigger\u201D lifts a corner out and tucks it back. Put a white corner directly <b>below</b> the slot it belongs to, then repeat the trigger until it pops up white. Each repeat rotates the corner a third of a turn, so it always lands eventually.');
+      run('middle', 'Middle layer', 'Insert the four non-yellow edges into the middle layer with the right- and left-hand edge inserts.', "U R U' R' U' F' U F", middleLayer,
+        'Take a top edge with <b>no yellow</b>, line its front colour up with that centre, then send it away from the side it belongs to and bring it back. Use <code>U R U\u2032 R\u2032 U\u2032 F\u2032 U F</code> to drop it right, or its mirror (swap R\u2194L, F\u2194B) to drop it left.');
+      run('ycross', 'Yellow cross', 'Make a yellow plus on top. Repeat F R U R\u2032 U\u2032 F\u2032 from a dot, an L-shape, or a line until you get the cross.', "F R U R' U' F'", yellowCross,
+        'This only moves the top <b>edges</b> (ignore corners for now). You\u2019ll see a dot \u2192 an L \u2192 a line \u2192 the full cross. Hold an <b>L</b> in the top-left, or a <b>line</b> left-to-right, then run <code>F R U R\u2032 U\u2032 F\u2032</code> and repeat until the plus appears.');
+      run('yedges', 'Place yellow edges', 'Cycle the top edges until each side colour matches its centre.', "R U R' U R U2 R'", placeLLEdges,
+        'Cross is made, but the side colours may be scrambled. This cycles <b>three</b> top edges while leaving one alone. Keep an already-matched edge at the <b>back</b> and repeat until every side colour meets its centre (a \u201Cdouble swap\u201D may need two passes).');
+      run('ycorners', 'Place yellow corners', 'Send each yellow corner to its correct location (the twist comes next).', "U R U' L' U R' U' L", positionLLCorners,
+        'This moves corners to the right <b>spot</b> \u2014 they may still be twisted the wrong way, that\u2019s fixed next. Look for one corner already in its correct location (its 3 colours match the 3 surrounding centres), hold it at front-right, then repeat <code>U R U\u2032 L\u2032 U R\u2032 U\u2032 L</code>.');
+      run('twist', 'Twist yellow corners', 'Orient each corner yellow-up with R\u2032 D\u2032 R D, turning the top (U) between corners. The cube finishes solved.', "R' D' R D", orientLLCorners,
+        'The famous \u201Cmagic move\u201D \u2014 a <b>commutator</b> that twists just one corner. Keep one unsolved corner at <b>front-top-right</b> and repeat <code>R\u2032 D\u2032 R D</code> (2 or 4 times) until its yellow faces up. It looks like you\u2019re wrecking the cube \u2014 you\u2019re not; finishing the corner restores everything. Then turn <b>only the top</b> (U) to bring the next corner to front-top-right and repeat.');
       if (!isSolved(ref.s)) throw new Error('NOT SOLVED at end');
       return { moves: ref.out.join(' '), stages, count: ref.out.length };
     }
@@ -3335,7 +3366,7 @@
   // beginner solution for the current cube, drives it through setScramble so the
   // 3D cube animates each move, and overlays a stage-by-stage teaching panel that
   // maps the playhead (currentIndex) to the current LBL stage + algorithm.
-  const coach = { active: false, stages: [], total: 0 };
+  const coach = { active: false, stages: [], total: 0, _algKey: null };
   const coachEl = {
     root: document.getElementById('coach'),
     title: document.getElementById('coachStage'),
@@ -3358,7 +3389,7 @@
       const str = (st.tokens || []).join(' ').trim();
       const start = all.length;
       if (str) { const parsed = parseScramble(str); all = all.concat(parsed.moves); }
-      bounds.push({ key: st.key, name: st.name, blurb: st.blurb, algName: st.algName, start, end: all.length });
+      bounds.push({ key: st.key, name: st.name, blurb: st.blurb, algName: st.algName, tip: st.tip, start, end: all.length });
     }
     return { all, bounds };
   }
@@ -3377,6 +3408,7 @@
     coach.stages = bounds;
     coach.total = all.length;
     coach.active = true;
+    coach._algKey = null;
     coachEl.root.hidden = false;
     document.body.classList.add('coaching');
     if (mqMobile.matches) applySheetState('expanded');
@@ -3416,7 +3448,7 @@
       coachEl.title.textContent = 'Solved! \uD83C\uDF89';
       coachEl.counter.textContent = `${visible.length} of ${visible.length} stages`;
       coachEl.blurb.textContent = 'Every face is one solid colour. You just solved the cube with the beginner Layer-by-Layer method. Try another scramble or scan to practise.';
-      coachEl.alg.innerHTML = '';
+      if (coach._algKey !== '__solved') { coach._algKey = '__solved'; coachEl.alg.innerHTML = ''; }
       coachEl.next.disabled = true;
       coachEl.auto.disabled = true;
     } else {
@@ -3427,9 +3459,18 @@
       // as setup rather than the confusing "Stage 0 of 7".
       coachEl.counter.textContent = vpos < 0 ? 'Setup' : `Stage ${vpos + 1} of ${visible.length}`;
       coachEl.blurb.textContent = st.blurb;
-      coachEl.alg.innerHTML = st.algName
-        ? `<span class="coach-alg-label">Algorithm</span><span class="coach-alg-moves">${escapeHtml(st.algName)}</span>`
-        : '';
+      // Rebuild the algorithm + "Why this works" guide only when the stage changes, so an open
+      // tip stays open while the learner steps move-by-move through the same stage.
+      if (coach._algKey !== st.key) {
+        coach._algKey = st.key;
+        if (st.algName) {
+          let html = `<span class="coach-alg-label">Algorithm</span><span class="coach-alg-moves">${escapeHtml(st.algName)}</span>`;
+          if (st.tip) html += `<details class="coach-why"><summary>Why this works</summary><div class="coach-why-body">${st.tip}</div></details>`;
+          coachEl.alg.innerHTML = html;
+        } else {
+          coachEl.alg.innerHTML = '';
+        }
+      }
       coachEl.next.disabled = currentIndex >= coach.total || animating;
       coachEl.auto.disabled = currentIndex >= st.end || animating;
     }
